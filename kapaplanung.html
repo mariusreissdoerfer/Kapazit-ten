@@ -2283,11 +2283,14 @@ createApp({
         }
       } catch(e) {}
     });
-    window.addEventListener('beforeunload', (e) => {
-      if (this.fileHandle && this.openedBy) {
-        e.preventDefault();
-        e.returnValue = 'Datei noch geöffnet. Bitte zuerst "Trennen" klicken.';
-      }
+    const releaseLock = () => {
+      if (!this.fileHandle || !this.openedBy) return;
+      this.openedBy = null;
+      this._writeSilent();
+    };
+    window.addEventListener('pagehide', releaseLock);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') releaseLock();
     });
     document.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); this.saveFile(); }
