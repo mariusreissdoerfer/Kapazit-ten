@@ -288,34 +288,6 @@ select.form-control{cursor:pointer}
             <button @click="ganttMode='member'" :style="{background:ganttMode==='member'?'#6366F1':'#fff',color:ganttMode==='member'?'#fff':'#64748B',border:'none',padding:'5px 12px',fontSize:'12px',fontWeight:600,cursor:'pointer'}">Mitarbeiter</button>
             <button @click="ganttMode='project'" :style="{background:ganttMode==='project'?'#6366F1':'#fff',color:ganttMode==='project'?'#fff':'#64748B',border:'none',borderLeft:'1px solid #E2E8F0',padding:'5px 12px',fontSize:'12px',fontWeight:600,cursor:'pointer'}">Projekte</button>
           </div>
-          <div style="position:relative" ref="deptDropdown">
-            <button @click.stop="deptDropdownOpen=!deptDropdownOpen"
-              :style="{display:'flex',alignItems:'center',gap:'6px',padding:'5px 10px',border:'1px solid '+(selectedDepartments.length?'#6366F1':'#E2E8F0'),borderRadius:'6px',background:selectedDepartments.length?'#EEF2FF':'#fff',color:selectedDepartments.length?'#4F46E5':'#475569',fontSize:'12px',fontWeight:600,cursor:'pointer',whiteSpace:'nowrap',height:'30px'}">
-              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:13px;height:13px;flex-shrink:0"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-              {{deptFilterLabel}}
-              <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" :style="{width:'12px',height:'12px',transition:'transform .15s',transform:deptDropdownOpen?'rotate(180deg)':'rotate(0)'}"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
-            <div v-if="deptDropdownOpen" @click.stop style="position:absolute;top:34px;left:0;background:#fff;border:1px solid #E2E8F0;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.12);z-index:50;min-width:200px;padding:6px 0">
-              <label style="display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:pointer;font-size:13px;color:#475569;font-weight:500;border-bottom:1px solid #F1F5F9;margin-bottom:4px"
-                @click.prevent="selectedDepartments=[]">
-                <span style="width:16px;height:16px;border-radius:4px;border:1.5px solid #CBD5E1;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#fff"
-                  :style="selectedDepartments.length===0?{background:'#6366F1',borderColor:'#6366F1'}:{}">
-                  <svg v-if="selectedDepartments.length===0" fill="none" stroke="#fff" stroke-width="3" viewBox="0 0 24 24" width="10" height="10"><polyline points="20 6 9 17 4 12"/></svg>
-                </span>
-                Alle Abteilungen
-              </label>
-              <label v-for="dep in departments" :key="dep"
-                style="display:flex;align-items:center;gap:8px;padding:7px 14px;cursor:pointer;font-size:13px;color:#1E293B;font-weight:500"
-                :style="{background:selectedDepartments.includes(dep)?'#F5F3FF':''}"
-                @click.prevent="selectedDepartments.includes(dep)?selectedDepartments=selectedDepartments.filter(d=>d!==dep):selectedDepartments.push(dep)">
-                <span style="width:16px;height:16px;border-radius:4px;border:1.5px solid #CBD5E1;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#fff"
-                  :style="selectedDepartments.includes(dep)?{background:'#6366F1',borderColor:'#6366F1'}:{}">
-                  <svg v-if="selectedDepartments.includes(dep)" fill="none" stroke="#fff" stroke-width="3" viewBox="0 0 24 24" width="10" height="10"><polyline points="20 6 9 17 4 12"/></svg>
-                </span>
-                {{dep}}
-              </label>
-            </div>
-          </div>
           <button class="btn btn-secondary btn-sm" @click="scrollToToday" title="Zur aktuellen Woche">Heute</button>
           <div style="display:flex;border:1px solid #E2E8F0;border-radius:6px;overflow:hidden;flex-shrink:0">
             <button @click="colW=Math.max(14,colW-7)" style="background:#fff;border:none;padding:5px 10px;font-size:14px;cursor:pointer;color:#64748B" title="Herauszoomen">−</button>
@@ -323,63 +295,33 @@ select.form-control{cursor:pointer}
             <button @click="colW=Math.min(140,colW+7)" style="background:#fff;border:none;padding:5px 10px;font-size:14px;cursor:pointer;color:#64748B" title="Hineinzoomen">+</button>
           </div>
         </template>
-        <template v-if="view==='dashboard'">
-          <div style="position:relative" ref="dashboardDeptDropdown">
-            <button @click.stop="dashboardDeptDropdownOpen=!dashboardDeptDropdownOpen"
-              :style="{display:'flex',alignItems:'center',gap:'6px',padding:'5px 10px',border:'1px solid '+(dashboardDepts.length?'#6366F1':'#E2E8F0'),borderRadius:'6px',background:dashboardDepts.length?'#EEF2FF':'#fff',color:dashboardDepts.length?'#4F46E5':'#475569',fontSize:'12px',fontWeight:600,cursor:'pointer',whiteSpace:'nowrap',height:'30px'}">
-              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:13px;height:13px;flex-shrink:0"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-              {{dashboardDeptFilterLabel}}
-              <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" :style="{width:'12px',height:'12px',transition:'transform .15s',transform:dashboardDeptDropdownOpen?'rotate(180deg)':'rotate(0)'}"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
-            <div v-if="dashboardDeptDropdownOpen" @click.stop style="position:absolute;top:34px;right:0;background:#fff;border:1px solid #E2E8F0;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.12);z-index:50;min-width:200px;padding:6px 0">
-              <label style="display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:pointer;font-size:13px;color:#475569;font-weight:500;border-bottom:1px solid #F1F5F9;margin-bottom:4px"
-                @click.prevent="dashboardDepts=[]">
-                <span style="width:16px;height:16px;border-radius:4px;border:1.5px solid #CBD5E1;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#fff"
-                  :style="dashboardDepts.length===0?{background:'#6366F1',borderColor:'#6366F1'}:{}">
-                  <svg v-if="dashboardDepts.length===0" fill="none" stroke="#fff" stroke-width="3" viewBox="0 0 24 24" width="10" height="10"><polyline points="20 6 9 17 4 12"/></svg>
-                </span>
-                Alle Abteilungen
-              </label>
-              <label v-for="dep in departments" :key="dep"
-                style="display:flex;align-items:center;gap:8px;padding:7px 14px;cursor:pointer;font-size:13px;color:#1E293B;font-weight:500"
-                :style="{background:dashboardDepts.includes(dep)?'#F5F3FF':''}"
-                @click.prevent="dashboardDepts.includes(dep)?dashboardDepts=dashboardDepts.filter(d=>d!==dep):dashboardDepts.push(dep)">
-                <span style="width:16px;height:16px;border-radius:4px;border:1.5px solid #CBD5E1;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#fff"
-                  :style="dashboardDepts.includes(dep)?{background:'#6366F1',borderColor:'#6366F1'}:{}">
-                  <svg v-if="dashboardDepts.includes(dep)" fill="none" stroke="#fff" stroke-width="3" viewBox="0 0 24 24" width="10" height="10"><polyline points="20 6 9 17 4 12"/></svg>
-                </span>
-                {{dep}}
-              </label>
-            </div>
-          </div>
-        </template>
         <template v-if="view==='projekte'">
           <input class="search-input" v-model="projectSearch" placeholder="Suchen...">
         </template>
-        <template v-if="view==='pipeline'">
-          <div style="position:relative" ref="pipelineDeptDropdown">
-            <button @click.stop="pipelineDeptDropdownOpen=!pipelineDeptDropdownOpen"
-              :style="{display:'flex',alignItems:'center',gap:'6px',padding:'5px 10px',border:'1px solid '+(pipelineDepts.length?'#6366F1':'#E2E8F0'),borderRadius:'6px',background:pipelineDepts.length?'#EEF2FF':'#fff',color:pipelineDepts.length?'#4F46E5':'#475569',fontSize:'12px',fontWeight:600,cursor:'pointer',whiteSpace:'nowrap',height:'30px'}">
+        <template v-if="view==='dashboard' || view==='ressourcen' || view==='pipeline'">
+          <div style="position:relative">
+            <button @click.stop="globalDeptDropdownOpen=!globalDeptDropdownOpen"
+              :style="{display:'flex',alignItems:'center',gap:'6px',padding:'5px 10px',border:'1px solid '+(globalDepts.length?'#6366F1':'#E2E8F0'),borderRadius:'6px',background:globalDepts.length?'#EEF2FF':'#fff',color:globalDepts.length?'#4F46E5':'#475569',fontSize:'12px',fontWeight:600,cursor:'pointer',whiteSpace:'nowrap',height:'30px'}">
               <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:13px;height:13px;flex-shrink:0"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-              {{pipelineDeptFilterLabel}}
-              <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" :style="{width:'12px',height:'12px',transition:'transform .15s',transform:pipelineDeptDropdownOpen?'rotate(180deg)':'rotate(0)'}"><polyline points="6 9 12 15 18 9"/></svg>
+              {{globalDeptFilterLabel}}
+              <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" :style="{width:'12px',height:'12px',transition:'transform .15s',transform:globalDeptDropdownOpen?'rotate(180deg)':'rotate(0)'}"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
-            <div v-if="pipelineDeptDropdownOpen" @click.stop style="position:absolute;top:34px;right:0;background:#fff;border:1px solid #E2E8F0;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.12);z-index:50;min-width:200px;padding:6px 0">
+            <div v-if="globalDeptDropdownOpen" @click.stop style="position:absolute;top:34px;right:0;background:#fff;border:1px solid #E2E8F0;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.12);z-index:50;min-width:200px;padding:6px 0">
               <label style="display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:pointer;font-size:13px;color:#475569;font-weight:500;border-bottom:1px solid #F1F5F9;margin-bottom:4px"
-                @click.prevent="pipelineDepts=[]">
+                @click.prevent="globalDepts=[]">
                 <span style="width:16px;height:16px;border-radius:4px;border:1.5px solid #CBD5E1;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#fff"
-                  :style="pipelineDepts.length===0?{background:'#6366F1',borderColor:'#6366F1'}:{}">
-                  <svg v-if="pipelineDepts.length===0" fill="none" stroke="#fff" stroke-width="3" viewBox="0 0 24 24" width="10" height="10"><polyline points="20 6 9 17 4 12"/></svg>
+                  :style="globalDepts.length===0?{background:'#6366F1',borderColor:'#6366F1'}:{}">
+                  <svg v-if="globalDepts.length===0" fill="none" stroke="#fff" stroke-width="3" viewBox="0 0 24 24" width="10" height="10"><polyline points="20 6 9 17 4 12"/></svg>
                 </span>
                 Alle Abteilungen
               </label>
               <label v-for="dep in departments" :key="dep"
                 style="display:flex;align-items:center;gap:8px;padding:7px 14px;cursor:pointer;font-size:13px;color:#1E293B;font-weight:500"
-                :style="{background:pipelineDepts.includes(dep)?'#F5F3FF':''}"
-                @click.prevent="pipelineDepts.includes(dep)?pipelineDepts=pipelineDepts.filter(d=>d!==dep):pipelineDepts.push(dep)">
+                :style="{background:globalDepts.includes(dep)?'#F5F3FF':''}"
+                @click.prevent="globalDepts.includes(dep)?globalDepts=globalDepts.filter(d=>d!==dep):globalDepts.push(dep)">
                 <span style="width:16px;height:16px;border-radius:4px;border:1.5px solid #CBD5E1;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#fff"
-                  :style="pipelineDepts.includes(dep)?{background:'#6366F1',borderColor:'#6366F1'}:{}">
-                  <svg v-if="pipelineDepts.includes(dep)" fill="none" stroke="#fff" stroke-width="3" viewBox="0 0 24 24" width="10" height="10"><polyline points="20 6 9 17 4 12"/></svg>
+                  :style="globalDepts.includes(dep)?{background:'#6366F1',borderColor:'#6366F1'}:{}">
+                  <svg v-if="globalDepts.includes(dep)" fill="none" stroke="#fff" stroke-width="3" viewBox="0 0 24 24" width="10" height="10"><polyline points="20 6 9 17 4 12"/></svg>
                 </span>
                 {{dep}}
               </label>
@@ -1214,12 +1156,8 @@ createApp({
 
       ganttMode: 'member',
       selectedColIdx: null,
-      selectedDepartments: [],
-      deptDropdownOpen: false,
-      pipelineDepts: [],
-      pipelineDeptDropdownOpen: false,
-      dashboardDepts: [],
-      dashboardDeptDropdownOpen: false,
+      globalDepts: [],
+      globalDeptDropdownOpen: false,
       colW: 80,
       sortKey: 'name', sortAsc: true,
       projectSearch: '',
@@ -1240,24 +1178,19 @@ createApp({
     },
     kanbanCols() {
       const statuses = [{status:'Aktiv',color:'#10B981'},{status:'Problem',color:'#EF4444'},{status:'On hold',color:'#F59E0B'},{status:'Abgeschlossen',color:'#94A3B8'}];
-      const list = this.pipelineDepts.length
-        ? this.projects.filter(p => (p.departments||[]).some(d => this.pipelineDepts.includes(d)))
+      const list = this.globalDepts.length
+        ? this.projects.filter(p => (p.departments||[]).some(d => this.globalDepts.includes(d)))
         : this.projects;
       return statuses.map(s => ({...s, projects: list.filter(p => p.status === s.status)}));
     },
-    pipelineDeptFilterLabel() {
-      if (!this.pipelineDepts.length) return 'Alle Abteilungen';
-      if (this.pipelineDepts.length === 1) return this.pipelineDepts[0];
-      return this.pipelineDepts.length + ' Abteilungen';
-    },
-    dashboardDeptFilterLabel() {
-      if (!this.dashboardDepts.length) return 'Alle Abteilungen';
-      if (this.dashboardDepts.length === 1) return this.dashboardDepts[0];
-      return this.dashboardDepts.length + ' Abteilungen';
+    globalDeptFilterLabel() {
+      if (!this.globalDepts.length) return 'Alle Abteilungen';
+      if (this.globalDepts.length === 1) return this.globalDepts[0];
+      return this.globalDepts.length + ' Abteilungen';
     },
     dashboardMembers() {
-      if (!this.dashboardDepts.length) return this.members;
-      return this.members.filter(m => this.dashboardDepts.includes(m.department));
+      if (!this.globalDepts.length) return this.members;
+      return this.members.filter(m => this.globalDepts.includes(m.department));
     },
     filteredSortedProjects() {
       let list = this.projects;
@@ -1324,14 +1257,9 @@ createApp({
       if (this.openedBy && this.openedBy.name !== myName) return false;
       return true;
     },
-    deptFilterLabel() {
-      if (!this.selectedDepartments.length) return 'Alle Abteilungen';
-      if (this.selectedDepartments.length === 1) return this.selectedDepartments[0];
-      return this.selectedDepartments.length + ' Abteilungen';
-    },
     visibleMembers() {
-      if (!this.selectedDepartments.length) return this.members;
-      return this.members.filter(m => this.selectedDepartments.includes(m.department));
+      if (!this.globalDepts.length) return this.members;
+      return this.members.filter(m => this.globalDepts.includes(m.department));
     },
     allocModalHours() {
       const m = this.members.find(x => x.id === this.allocModal.memberId);
@@ -2296,7 +2224,7 @@ createApp({
 
   watch: {
     currentUserName(v) { localStorage.setItem('kapaUserName', v); },
-    dashboardDepts() { if (this.view === 'dashboard') this.renderCharts(); },
+    globalDepts() { if (this.view === 'dashboard') this.renderCharts(); },
     view(v) {
       if (v === 'dashboard') this.renderCharts();
       if (v === 'ressourcen') this.$nextTick(() => {
@@ -2312,7 +2240,7 @@ createApp({
   },
 
   mounted() {
-    document.addEventListener('click', () => { this.deptDropdownOpen = false; this.pipelineDeptDropdownOpen = false; this.dashboardDeptDropdownOpen = false; });
+    document.addEventListener('click', () => { this.globalDeptDropdownOpen = false; });
     this._loadHandleFromIDB().then(async handle => {
       if (!handle) return;
       this.lastFileHandle = handle;
@@ -2339,7 +2267,7 @@ createApp({
     });
     document.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); this.saveFile(); }
-      if (e.key === 'Escape') { this.showAllocModal=false; this.showProjectModal=false; this.showMemberModal=false; this.showAbsenceModal=false; this.deptDropdownOpen=false; this.pipelineDeptDropdownOpen=false; this.dashboardDeptDropdownOpen=false; }
+      if (e.key === 'Escape') { this.showAllocModal=false; this.showProjectModal=false; this.showMemberModal=false; this.showAbsenceModal=false; this.globalDeptDropdownOpen=false; }
     });
     document.addEventListener('mousemove', this._onMouseMove.bind(this));
     document.addEventListener('mouseup',   this._onMouseUp.bind(this));
