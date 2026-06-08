@@ -1058,10 +1058,10 @@ select.form-control{cursor:pointer}
           </div>
           <div class="form-group">
             <label class="form-label">Abteilung</label>
-            <input class="form-control" v-model="memberModal.department" list="dept-list" placeholder="Musterabteilung">
-            <datalist id="dept-list">
-              <option v-for="dep in departments" :key="dep" :value="dep"/>
-            </datalist>
+            <select class="form-control" v-model="memberModal.department">
+              <option value="">– Keine –</option>
+              <option v-for="dep in departments" :key="dep" :value="dep">{{dep}}</option>
+            </select>
           </div>
         </div>
         <div class="form-row">
