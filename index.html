@@ -329,7 +329,9 @@ select.form-control{cursor:pointer}
           </div>
         </template>
 
-        <button class="btn btn-primary" @click="saveFile" title="Ctrl+S">
+        <button class="btn btn-primary" @click="saveFile" title="Ctrl+S"
+          :disabled="openedBy && openedBy.name !== (currentUserName || 'Unbekannt')"
+          :style="openedBy && openedBy.name !== (currentUserName || 'Unbekannt') ? {opacity:'.4',cursor:'not-allowed'} : {}">
           <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="15" height="15"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
           Speichern
         </button>
@@ -2275,7 +2277,7 @@ createApp({
     };
     window.addEventListener('pagehide', releaseLock);
     document.addEventListener('keydown', (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); this.saveFile(); }
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); if (!this.openedBy || this.openedBy.name === (this.currentUserName || 'Unbekannt')) this.saveFile(); }
       if (e.key === 'Escape') { this.showAllocModal=false; this.showProjectModal=false; this.showMemberModal=false; this.showAbsenceModal=false; this.globalDeptDropdownOpen=false; }
     });
     document.addEventListener('mousemove', this._onMouseMove.bind(this));
