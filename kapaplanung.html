@@ -269,6 +269,10 @@ select.form-control{cursor:pointer}
           <svg fill="none" stroke="#10B981" stroke-width="2" viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           {{openedBy.name}}
         </span>
+        <span v-if="autoSaveActive" style="border-left:1px solid #A7F3D0;padding-left:10px;display:flex;align-items:center;gap:4px;white-space:nowrap;flex-shrink:0;opacity:.8" title="Automatisch speichern aktiv">
+          <svg fill="none" stroke="#10B981" stroke-width="2" viewBox="0 0 24 24" style="width:12px;height:12px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
+          Auto
+        </span>
       </div>
       <div v-else style="display:flex;align-items:center;gap:7px;padding:5px 10px;background:#FEF2F2;border:1px solid #FECACA;border-radius:7px;font-size:12px;color:#991B1B;font-weight:500">
         <svg fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24" style="width:14px;height:14px;flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -725,6 +729,16 @@ select.form-control{cursor:pointer}
               <button v-if="fileHandle" class="btn btn-danger" @click="disconnectFile">Verbindung trennen</button>
             </div>
             <div v-if="fileName" style="margin-top:10px;font-size:12px;color:#0369A1">✓ Verbunden: <strong>{{fileName}}</strong></div>
+            <div style="margin-top:12px;display:flex;align-items:center;justify-content:space-between">
+              <div>
+                <div style="font-size:13px;font-weight:600;color:#1E293B">Automatisch speichern</div>
+                <div style="font-size:11px;color:#94A3B8;margin-top:1px">Speichert 4 Sek. nach jeder Änderung · deaktiviert wenn jemand anderes die Datei geöffnet hat</div>
+              </div>
+              <button @click="autoSaveEnabled=!autoSaveEnabled; localStorage.setItem('kapaAutoSave', autoSaveEnabled)"
+                :style="{position:'relative',width:'44px',height:'24px',borderRadius:'12px',border:'none',cursor:'pointer',transition:'background .2s',background:autoSaveEnabled?'#6366F1':'#CBD5E1',flexShrink:0}">
+                <span :style="{position:'absolute',top:'3px',left:autoSaveEnabled?'23px':'3px',width:'18px',height:'18px',borderRadius:'50%',background:'#fff',transition:'left .2s',display:'block'}"></span>
+              </button>
+            </div>
             <div v-if="openedBy" style="margin-top:8px;font-size:12px;color:#92400E;background:#FEF3C7;padding:6px 10px;border-radius:6px">
               🔒 Geöffnet von <strong>{{openedBy.name}}</strong> seit {{formatLockTime(openedBy.since)}}
             </div>
@@ -1144,6 +1158,8 @@ createApp({
       lastFileName: null,
       currentUserName: localStorage.getItem('kapaUserName') || '',
       openedBy: null,
+      autoSaveEnabled: localStorage.getItem('kapaAutoSave') !== 'false',
+      autoSaveTimer: null,
 
       // Drag state
       dragState: null, // {item, type:'move'|'left'|'right', startX, origStartKW, origEndKW}
@@ -1253,6 +1269,13 @@ createApp({
     },
     departments() {
       return this.departmentList;
+    },
+    autoSaveActive() {
+      if (!this.autoSaveEnabled) return false;
+      if (!this.fileHandle) return false;
+      const myName = this.currentUserName || 'Unbekannt';
+      if (this.openedBy && this.openedBy.name !== myName) return false;
+      return true;
     },
     deptFilterLabel() {
       if (!this.selectedDepartments.length) return 'Alle Abteilungen';
@@ -1840,6 +1863,12 @@ createApp({
     },
     autoSave() {
       try { localStorage.setItem('kapaData', JSON.stringify(this.buildExportData())); } catch(e) {}
+      this._scheduleAutoSave();
+    },
+    _scheduleAutoSave() {
+      if (!this.autoSaveActive) return;
+      clearTimeout(this.autoSaveTimer);
+      this.autoSaveTimer = setTimeout(() => { this._writeSilent(); }, 4000);
     },
     _loadLocalStorage() {
       try {
