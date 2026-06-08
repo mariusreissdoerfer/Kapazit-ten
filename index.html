@@ -2274,9 +2274,6 @@ createApp({
       this._writeSilent();
     };
     window.addEventListener('pagehide', releaseLock);
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') releaseLock();
-    });
     document.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); this.saveFile(); }
       if (e.key === 'Escape') { this.showAllocModal=false; this.showProjectModal=false; this.showMemberModal=false; this.showAbsenceModal=false; this.globalDeptDropdownOpen=false; }
