@@ -509,7 +509,8 @@ select.form-control{cursor:pointer}
                   </td>
                 </tr>
                 <!-- One absence row for all absences of this member -->
-                <tr class="gkw-alloc-row">
+                <template v-for="absGroup in [getMemberAbsenceLanes(member.id)]" :key="'absrow-'+member.id">
+                <tr class="gkw-alloc-row" :style="{height: absGroup.laneCount * 26 + 'px'}">
                   <td class="gkw-alloc-td-name">
                     <div class="gkw-alloc-label">
                       <div class="proj-color-dot" style="background:#94A3B8"></div>
@@ -518,9 +519,9 @@ select.form-control{cursor:pointer}
                     </div>
                   </td>
                   <td :colspan="ganttColCount" class="gkw-bar-td">
-                    <div class="gantt-bar gantt-bar-absence" v-for="abs in getMemberAbsences(member.id)" :key="abs.id"
+                    <div class="gantt-bar gantt-bar-absence" v-for="abs in absGroup.absences" :key="abs.id"
                       :class="{dragging: dragState && dragState.item===abs}"
-                      :style="getAbsBarStyle(abs)"
+                      :style="getAbsBarStyleLaned(abs, absGroup.laneOf[abs.id]||0)"
                       @mousedown.prevent="startDrag($event, abs, 'move')"
                       @dblclick.prevent.stop="editAbsence(abs)">
                       <div class="bar-handle bar-handle-left" @mousedown.prevent.stop="startDrag($event, abs, 'left')"></div>
@@ -529,6 +530,7 @@ select.form-control{cursor:pointer}
                     </div>
                   </td>
                 </tr>
+                </template>
                 <!-- Add row -->
                 <tr class="gkw-add-row">
                   <td class="gkw-add-td-name">
@@ -1457,9 +1459,15 @@ createApp({
         bottom:     'auto',
       };
     },
-    getAbsBarStyle(abs) {
+    getMemberAbsenceLanes(memberId) {
+      const absences = this.getMemberAbsences(memberId);
+      const {laneCount, laneOf} = this.computeLanes(absences);
+      return {absences, laneCount, laneOf};
+    },
+    getAbsBarStyleLaned(abs, laneIdx) {
+      const laneH = 26;
       const bl = this.barLeft(abs);
-      return { '--bar-left': bl + 'px', left: bl + 'px', width: this.barWidth(abs) + 'px' };
+      return { '--bar-left': bl + 'px', left: bl + 'px', width: this.barWidth(abs) + 'px', top: (laneIdx * laneH + 3) + 'px', height: (laneH - 6) + 'px', bottom: 'auto' };
     },
     kwMonday(kw, year) {
       const jan4 = new Date(year, 0, 4);
