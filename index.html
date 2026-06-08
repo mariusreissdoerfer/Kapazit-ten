@@ -2156,8 +2156,20 @@ createApp({
 
   mounted() {
     document.addEventListener('click', () => { this.deptDropdownOpen = false; this.pipelineDeptDropdownOpen = false; });
-    this._loadHandleFromIDB().then(handle => {
-      if (handle) { this.lastFileHandle = handle; this.lastFileName = handle.name; }
+    this._loadHandleFromIDB().then(async handle => {
+      if (!handle) return;
+      this.lastFileHandle = handle;
+      this.lastFileName = handle.name;
+      try {
+        const perm = await handle.queryPermission({mode: 'readwrite'});
+        if (perm === 'granted') {
+          this.fileHandle = handle;
+          this.fileName = handle.name;
+          const file = await handle.getFile();
+          this.loadFromData(JSON.parse(await file.text()));
+          this.notify('Datei wiederhergestellt: ' + handle.name, 'success');
+        }
+      } catch(e) {}
     });
     document.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); this.saveFile(); }
