@@ -323,6 +323,36 @@ select.form-control{cursor:pointer}
             <button @click="colW=Math.min(140,colW+7)" style="background:#fff;border:none;padding:5px 10px;font-size:14px;cursor:pointer;color:#64748B" title="Hineinzoomen">+</button>
           </div>
         </template>
+        <template v-if="view==='dashboard'">
+          <div style="position:relative" ref="dashboardDeptDropdown">
+            <button @click.stop="dashboardDeptDropdownOpen=!dashboardDeptDropdownOpen"
+              :style="{display:'flex',alignItems:'center',gap:'6px',padding:'5px 10px',border:'1px solid '+(dashboardDepts.length?'#6366F1':'#E2E8F0'),borderRadius:'6px',background:dashboardDepts.length?'#EEF2FF':'#fff',color:dashboardDepts.length?'#4F46E5':'#475569',fontSize:'12px',fontWeight:600,cursor:'pointer',whiteSpace:'nowrap',height:'30px'}">
+              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:13px;height:13px;flex-shrink:0"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              {{dashboardDeptFilterLabel}}
+              <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" :style="{width:'12px',height:'12px',transition:'transform .15s',transform:dashboardDeptDropdownOpen?'rotate(180deg)':'rotate(0)'}"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div v-if="dashboardDeptDropdownOpen" @click.stop style="position:absolute;top:34px;right:0;background:#fff;border:1px solid #E2E8F0;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.12);z-index:50;min-width:200px;padding:6px 0">
+              <label style="display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:pointer;font-size:13px;color:#475569;font-weight:500;border-bottom:1px solid #F1F5F9;margin-bottom:4px"
+                @click.prevent="dashboardDepts=[]">
+                <span style="width:16px;height:16px;border-radius:4px;border:1.5px solid #CBD5E1;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#fff"
+                  :style="dashboardDepts.length===0?{background:'#6366F1',borderColor:'#6366F1'}:{}">
+                  <svg v-if="dashboardDepts.length===0" fill="none" stroke="#fff" stroke-width="3" viewBox="0 0 24 24" width="10" height="10"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+                Alle Abteilungen
+              </label>
+              <label v-for="dep in departments" :key="dep"
+                style="display:flex;align-items:center;gap:8px;padding:7px 14px;cursor:pointer;font-size:13px;color:#1E293B;font-weight:500"
+                :style="{background:dashboardDepts.includes(dep)?'#F5F3FF':''}"
+                @click.prevent="dashboardDepts.includes(dep)?dashboardDepts=dashboardDepts.filter(d=>d!==dep):dashboardDepts.push(dep)">
+                <span style="width:16px;height:16px;border-radius:4px;border:1.5px solid #CBD5E1;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#fff"
+                  :style="dashboardDepts.includes(dep)?{background:'#6366F1',borderColor:'#6366F1'}:{}">
+                  <svg v-if="dashboardDepts.includes(dep)" fill="none" stroke="#fff" stroke-width="3" viewBox="0 0 24 24" width="10" height="10"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+                {{dep}}
+              </label>
+            </div>
+          </div>
+        </template>
         <template v-if="view==='projekte'">
           <input class="search-input" v-model="projectSearch" placeholder="Suchen...">
         </template>
@@ -578,7 +608,7 @@ select.form-control{cursor:pointer}
         <div class="kpi-card">
           <div class="kpi-icon" style="background:#EEF2FF"><svg fill="none" stroke="#6366F1" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
           <div class="kpi-label">Team-Mitglieder</div>
-          <div class="kpi-value">{{members.length}}</div>
+          <div class="kpi-value">{{dashboardMembers.length}}</div>
           <div class="kpi-sub">Standort DE</div>
         </div>
         <div class="kpi-card">
@@ -1188,6 +1218,8 @@ createApp({
       deptDropdownOpen: false,
       pipelineDepts: [],
       pipelineDeptDropdownOpen: false,
+      dashboardDepts: [],
+      dashboardDeptDropdownOpen: false,
       colW: 80,
       sortKey: 'name', sortAsc: true,
       projectSearch: '',
@@ -1218,6 +1250,15 @@ createApp({
       if (this.pipelineDepts.length === 1) return this.pipelineDepts[0];
       return this.pipelineDepts.length + ' Abteilungen';
     },
+    dashboardDeptFilterLabel() {
+      if (!this.dashboardDepts.length) return 'Alle Abteilungen';
+      if (this.dashboardDepts.length === 1) return this.dashboardDepts[0];
+      return this.dashboardDepts.length + ' Abteilungen';
+    },
+    dashboardMembers() {
+      if (!this.dashboardDepts.length) return this.members;
+      return this.members.filter(m => this.dashboardDepts.includes(m.department));
+    },
     filteredSortedProjects() {
       let list = this.projects;
       const q = this.projectSearch.toLowerCase();
@@ -1230,8 +1271,9 @@ createApp({
       });
     },
     topProjects() {
+      const memberIds = new Set(this.dashboardMembers.map(m => m.id));
       const totals = {};
-      this.allocations.forEach(a => {
+      this.allocations.filter(a => memberIds.has(a.memberId)).forEach(a => {
         const weeks = a.endKW - a.startKW + 1;
         totals[a.projectName] = (totals[a.projectName] || 0) + a.hoursPerWeek * weeks;
       });
@@ -1242,7 +1284,8 @@ createApp({
     },
     avgUtilCurrentKW() {
       const kw = this.currentKW, year = new Date().getFullYear();
-      const utils = this.members.map(m => this.getWeekUtil(m.id, kw, year));
+      const utils = this.dashboardMembers.map(m => this.getWeekUtil(m.id, kw, year));
+      if (!utils.length) return 0;
       return Math.round(utils.reduce((s,v) => s+v, 0) / utils.length);
     },
     ganttCols() {
@@ -2178,16 +2221,17 @@ createApp({
 
         // Stacked bar: hours by focus per month
         const months = [5,6,7,8,9,10,11,12];
+        const dashMemberIds = new Set(this.dashboardMembers.map(m => m.id));
         const monthFocusData = months.map(m => {
           const mg = MONTH_GROUPS.find(g => g.month === m);
           const result = Object.fromEntries(FOCUS_KEYS.map(f => [f, 0]));
           let totalCap = 0;
           for (let kw = mg.startKW; kw <= mg.endKW; kw++) {
-            this.members.forEach(mem => {
+            this.dashboardMembers.forEach(mem => {
               totalCap += this.getWeekAvailable(mem.id, kw, this.ganttStartYear);
             });
             this.allocations
-              .filter(a => a.year === this.ganttStartYear && a.startKW <= kw && a.endKW >= kw)
+              .filter(a => a.year === this.ganttStartYear && a.startKW <= kw && a.endKW >= kw && dashMemberIds.has(a.memberId))
               .forEach(a => {
                 const f = FOCUS_KEYS.includes(a.focus) ? a.focus : 'Konstruktion';
                 result[f] += a.hoursPerWeek;
@@ -2252,6 +2296,7 @@ createApp({
 
   watch: {
     currentUserName(v) { localStorage.setItem('kapaUserName', v); },
+    dashboardDepts() { if (this.view === 'dashboard') this.renderCharts(); },
     view(v) {
       if (v === 'dashboard') this.renderCharts();
       if (v === 'ressourcen') this.$nextTick(() => {
@@ -2267,7 +2312,7 @@ createApp({
   },
 
   mounted() {
-    document.addEventListener('click', () => { this.deptDropdownOpen = false; this.pipelineDeptDropdownOpen = false; });
+    document.addEventListener('click', () => { this.deptDropdownOpen = false; this.pipelineDeptDropdownOpen = false; this.dashboardDeptDropdownOpen = false; });
     this._loadHandleFromIDB().then(async handle => {
       if (!handle) return;
       this.lastFileHandle = handle;
@@ -2294,7 +2339,7 @@ createApp({
     });
     document.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); this.saveFile(); }
-      if (e.key === 'Escape') { this.showAllocModal=false; this.showProjectModal=false; this.showMemberModal=false; this.showAbsenceModal=false; this.deptDropdownOpen=false; this.pipelineDeptDropdownOpen=false; }
+      if (e.key === 'Escape') { this.showAllocModal=false; this.showProjectModal=false; this.showMemberModal=false; this.showAbsenceModal=false; this.deptDropdownOpen=false; this.pipelineDeptDropdownOpen=false; this.dashboardDeptDropdownOpen=false; }
     });
     document.addEventListener('mousemove', this._onMouseMove.bind(this));
     document.addEventListener('mouseup',   this._onMouseUp.bind(this));
