@@ -714,7 +714,7 @@ select.form-control{cursor:pointer}
           <h3>Mein Name</h3>
           <div style="display:flex;gap:8px;align-items:center">
             <input class="form-control" v-model="currentUserName" placeholder="Max Mustermann" style="flex:1"
-              @input="$event => { localStorage.setItem('kapaUserName', currentUserName) }">
+              >
             <span style="font-size:12px;color:#94A3B8;white-space:nowrap">Wird beim Öffnen in die Datei geschrieben</span>
           </div>
         </div>
@@ -2247,6 +2247,7 @@ createApp({
   },
 
   watch: {
+    currentUserName(v) { localStorage.setItem('kapaUserName', v); },
     view(v) {
       if (v === 'dashboard') this.renderCharts();
       if (v === 'ressourcen') this.$nextTick(() => {
