@@ -1156,7 +1156,7 @@ createApp({
 
       ganttMode: 'member',
       selectedColIdx: null,
-      globalDepts: [],
+      globalDepts: JSON.parse(localStorage.getItem('kapaGlobalDepts') || '[]'),
       globalDeptDropdownOpen: false,
       colW: 80,
       sortKey: 'name', sortAsc: true,
@@ -2224,7 +2224,7 @@ createApp({
 
   watch: {
     currentUserName(v) { localStorage.setItem('kapaUserName', v); },
-    globalDepts() { if (this.view === 'dashboard') this.renderCharts(); },
+    globalDepts(v) { localStorage.setItem('kapaGlobalDepts', JSON.stringify(v)); if (this.view === 'dashboard') this.renderCharts(); },
     view(v) {
       if (v === 'dashboard') this.renderCharts();
       if (v === 'ressourcen') this.$nextTick(() => {
