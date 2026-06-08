@@ -243,6 +243,12 @@ select.form-control{cursor:pointer}
         <div class="dot" :class="{saved: !!fileName}"></div>
         <span>{{fileName || 'Nicht verbunden'}}</span>
       </div>
+      <button v-if="lastFileName && !fileHandle" @click="reopenLastFile"
+        style="margin-top:8px;width:100%;background:#334155;border:none;color:#94A3B8;font-size:11px;padding:6px 8px;border-radius:6px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:6px;overflow:hidden"
+        title="Zuletzt geöffnete Datei wiederherstellen">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:13px;height:13px;flex-shrink:0"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{lastFileName}}</span>
+      </button>
     </div>
   </div>
 
@@ -1103,6 +1109,8 @@ createApp({
 
       fileHandle: null,
       fileName: null,
+      lastFileHandle: null,
+      lastFileName: null,
 
       // Drag state
       dragState: null, // {item, type:'move'|'left'|'right', startX, origStartKW, origEndKW}
@@ -1711,6 +1719,9 @@ createApp({
           });
           this.fileHandle = handle;
           this.fileName = handle.name;
+          this.lastFileHandle = handle;
+          this.lastFileName = handle.name;
+          await this._saveHandleToIDB(handle);
           const file = await handle.getFile();
           this.loadFromData(JSON.parse(await file.text()));
           this.notify('Datei geladen: ' + handle.name, 'success');
@@ -1982,6 +1993,43 @@ createApp({
       this.departmentList = this.departmentList.filter(d => d !== dep);
       this.autoSave();
     },
+    _openIDB() {
+      return new Promise((res, rej) => {
+        const req = indexedDB.open('kapaplanung', 1);
+        req.onupgradeneeded = e => e.target.result.createObjectStore('handles');
+        req.onsuccess = e => res(e.target.result);
+        req.onerror = () => rej();
+      });
+    },
+    async _saveHandleToIDB(handle) {
+      try {
+        const db = await this._openIDB();
+        const tx = db.transaction('handles', 'readwrite');
+        tx.objectStore('handles').put(handle, 'lastFile');
+      } catch(e) {}
+    },
+    async _loadHandleFromIDB() {
+      try {
+        const db = await this._openIDB();
+        return await new Promise((res, rej) => {
+          const req = db.transaction('handles').objectStore('handles').get('lastFile');
+          req.onsuccess = e => res(e.target.result || null);
+          req.onerror = () => res(null);
+        });
+      } catch(e) { return null; }
+    },
+    async reopenLastFile() {
+      if (!this.lastFileHandle) return;
+      try {
+        const perm = await this.lastFileHandle.requestPermission({mode:'readwrite'});
+        if (perm !== 'granted') { this.notify('Zugriff verweigert', 'error'); return; }
+        this.fileHandle = this.lastFileHandle;
+        this.fileName = this.lastFileName;
+        const file = await this.lastFileHandle.getFile();
+        this.loadFromData(JSON.parse(await file.text()));
+        this.notify('Datei geladen: ' + this.fileName, 'success');
+      } catch(e) { this.notify('Datei konnte nicht geöffnet werden', 'error'); }
+    },
     confirmClearAll() {
       if (!confirm('Wirklich alle Daten leeren?\n\nMitglieder, Projekte, Zuweisungen und Abwesenheiten werden gelöscht.')) return;
       this.members = [];
@@ -2100,6 +2148,9 @@ createApp({
 
   mounted() {
     document.addEventListener('click', () => { this.deptDropdownOpen = false; this.pipelineDeptDropdownOpen = false; });
+    this._loadHandleFromIDB().then(handle => {
+      if (handle) { this.lastFileHandle = handle; this.lastFileName = handle.name; }
+    });
     document.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); this.saveFile(); }
       if (e.key === 'Escape') { this.showAllocModal=false; this.showProjectModal=false; this.showMemberModal=false; this.showAbsenceModal=false; this.deptDropdownOpen=false; this.pipelineDeptDropdownOpen=false; }
