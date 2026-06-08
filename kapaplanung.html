@@ -344,13 +344,14 @@ select.form-control{cursor:pointer}
             </div>
           </div>
         </template>
-        <button class="btn btn-secondary" @click="openFile">
-          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="15" height="15"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-          Öffnen
-        </button>
+
         <button class="btn btn-primary" @click="saveFile" title="Ctrl+S">
           <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="15" height="15"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
           Speichern
+        </button>
+        <button v-if="fileHandle" class="btn btn-secondary" @click="disconnectFile" title="Verbindung trennen und Lock freigeben" style="color:#EF4444;border-color:#FECACA">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="15" height="15"><path d="M18.36 6.64A9 9 0 1 1 5.64 19.36"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+          Trennen
         </button>
         <template v-if="view==='pipeline' || view==='projekte'">
           <button class="btn btn-primary" @click="openProjectModal(null)">+ Projekt</button>
@@ -702,6 +703,14 @@ select.form-control{cursor:pointer}
     <div class="content" v-else-if="view==='einstellungen'">
       <div style="max-width:640px">
         <div class="settings-section">
+          <h3>Mein Name</h3>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input class="form-control" v-model="currentUserName" placeholder="z.B. Marius Reißdörfer" style="flex:1"
+              @input="$event => { localStorage.setItem('kapaUserName', currentUserName) }">
+            <span style="font-size:12px;color:#94A3B8;white-space:nowrap">Wird beim Öffnen in die Datei geschrieben</span>
+          </div>
+        </div>
+        <div class="settings-section">
           <h3>Teams Sync</h3>
           <div class="teams-sync-box">
             <p>Speichere <strong>kapa_data.json</strong> in deinem Microsoft Teams Kanal-Ordner. Öffne die Datei hier — <strong>Ctrl+S</strong> speichert direkt zurück. Alle Kollegen mit dieser HTML können dieselbe Datei öffnen.</p>
@@ -709,8 +718,12 @@ select.form-control{cursor:pointer}
               <button class="btn btn-primary" @click="openFile">Teams-Datei öffnen</button>
               <button class="btn btn-secondary" @click="saveFileAs">Speichern unter…</button>
               <button class="btn btn-secondary" @click="downloadJson">JSON exportieren</button>
+              <button v-if="fileHandle" class="btn btn-danger" @click="disconnectFile">Verbindung trennen</button>
             </div>
             <div v-if="fileName" style="margin-top:10px;font-size:12px;color:#0369A1">✓ Verbunden: <strong>{{fileName}}</strong></div>
+            <div v-if="openedBy" style="margin-top:8px;font-size:12px;color:#92400E;background:#FEF3C7;padding:6px 10px;border-radius:6px">
+              🔒 Geöffnet von <strong>{{openedBy.name}}</strong> seit {{formatLockTime(openedBy.since)}}
+            </div>
           </div>
         </div>
         <div class="settings-section">
@@ -1125,6 +1138,8 @@ createApp({
       fileName: null,
       lastFileHandle: null,
       lastFileName: null,
+      currentUserName: localStorage.getItem('kapaUserName') || '',
+      openedBy: null,
 
       // Drag state
       dragState: null, // {item, type:'move'|'left'|'right', startX, origStartKW, origEndKW}
@@ -1731,13 +1746,24 @@ createApp({
             types: [{description:'Kapa-Daten (JSON)', accept:{'application/json':['.json']}}],
             startIn: 'documents'
           });
-          this.fileHandle = handle;
-          this.fileName = handle.name;
           this.lastFileHandle = handle;
           this.lastFileName = handle.name;
           await this._saveHandleToIDB(handle);
           const file = await handle.getFile();
-          this.loadFromData(JSON.parse(await file.text()));
+          const data = JSON.parse(await file.text());
+          if (data.openedBy && data.openedBy.name) {
+            const ageSec = (Date.now() - new Date(data.openedBy.since).getTime()) / 1000;
+            if (ageSec < 8 * 3600) {
+              const since = this.formatLockTime(data.openedBy.since);
+              const go = confirm('Diese Datei wird gerade von "' + data.openedBy.name + '" bearbeitet (seit ' + since + ').\n\nTrotzdem öffnen? Änderungen könnten sich gegenseitig überschreiben.');
+              if (!go) return;
+            }
+          }
+          this.fileHandle = handle;
+          this.fileName = handle.name;
+          this.loadFromData(data);
+          this.openedBy = {name: this.currentUserName || 'Unbekannt', since: new Date().toISOString()};
+          await this._writeSilent();
           this.notify('Datei geladen: ' + handle.name, 'success');
         } catch(e) { if (e.name !== 'AbortError') this.notify('Öffnen fehlgeschlagen', 'error'); }
       } else {
@@ -1772,9 +1798,10 @@ createApp({
       URL.revokeObjectURL(a.href);
     },
     buildExportData() {
-      return {version:'1.4', exportedAt: new Date().toISOString().slice(0,10), departmentList:this.departmentList, members:this.members, projects:this.projects, allocations:this.allocations, absences:this.absences};
+      return {version:'1.5', exportedAt: new Date().toISOString().slice(0,10), openedBy:this.openedBy, departmentList:this.departmentList, members:this.members, projects:this.projects, allocations:this.allocations, absences:this.absences};
     },
     loadFromData(data) {
+      this.openedBy = data.openedBy || null;
       if (data.departmentList) {
         this.departmentList = data.departmentList;
       } else if (data.members) {
@@ -2041,12 +2068,49 @@ createApp({
       try {
         const perm = await this.lastFileHandle.requestPermission({mode:'readwrite'});
         if (perm !== 'granted') { this.notify('Zugriff verweigert', 'error'); return; }
+        const file = await this.lastFileHandle.getFile();
+        const data = JSON.parse(await file.text());
+        if (data.openedBy && data.openedBy.name) {
+          const ageSec = (Date.now() - new Date(data.openedBy.since).getTime()) / 1000;
+          if (ageSec < 8 * 3600) {
+            const since = this.formatLockTime(data.openedBy.since);
+            const go = confirm('Diese Datei wird gerade von "' + data.openedBy.name + '" bearbeitet (seit ' + since + ').\n\nTrotzdem öffnen?');
+            if (!go) return;
+          }
+        }
         this.fileHandle = this.lastFileHandle;
         this.fileName = this.lastFileName;
-        const file = await this.lastFileHandle.getFile();
-        this.loadFromData(JSON.parse(await file.text()));
+        this.loadFromData(data);
+        this.openedBy = {name: this.currentUserName || 'Unbekannt', since: new Date().toISOString()};
+        await this._writeSilent();
         this.notify('Datei geladen: ' + this.fileName, 'success');
       } catch(e) { this.notify('Datei konnte nicht geöffnet werden', 'error'); }
+    },
+    async disconnectFile() {
+      if (!this.fileHandle) return;
+      this.openedBy = null;
+      await this._writeSilent();
+      this.fileHandle = null;
+      this.fileName = null;
+      this.notify('Verbindung getrennt', 'info');
+    },
+    async _writeSilent() {
+      if (!this.fileHandle) return;
+      try {
+        const w = await this.fileHandle.createWritable();
+        await w.write(JSON.stringify(this.buildExportData(), null, 2));
+        await w.close();
+      } catch(e) {}
+    },
+    formatLockTime(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      const diffMin = Math.round((Date.now() - d.getTime()) / 60000);
+      if (diffMin < 1) return 'gerade eben';
+      if (diffMin < 60) return 'vor ' + diffMin + ' Min.';
+      const h = d.getHours().toString().padStart(2,'0');
+      const m = d.getMinutes().toString().padStart(2,'0');
+      return h + ':' + m + ' Uhr';
     },
     confirmClearAll() {
       if (!confirm('Wirklich alle Daten leeren?\n\nMitglieder, Projekte, Zuweisungen und Abwesenheiten werden gelöscht.')) return;
@@ -2180,6 +2244,12 @@ createApp({
           this.notify('Datei wiederhergestellt: ' + handle.name, 'success');
         }
       } catch(e) {}
+    });
+    window.addEventListener('beforeunload', (e) => {
+      if (this.fileHandle && this.openedBy) {
+        e.preventDefault();
+        e.returnValue = 'Datei noch geöffnet. Bitte zuerst "Trennen" klicken.';
+      }
     });
     document.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); this.saveFile(); }
