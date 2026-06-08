@@ -262,9 +262,13 @@ select.form-control{cursor:pointer}
     </div>
     <div class="topbar">
       <div class="topbar-title">{{viewTitle}}</div>
-      <div v-if="fileName" style="display:flex;align-items:center;gap:7px;padding:5px 10px;background:#F0FDF4;border:1px solid #A7F3D0;border-radius:7px;font-size:12px;color:#065F46;font-weight:500;max-width:320px;overflow:hidden">
+      <div v-if="fileName" style="display:flex;align-items:center;gap:10px;padding:5px 12px;background:#F0FDF4;border:1px solid #A7F3D0;border-radius:7px;font-size:12px;color:#065F46;font-weight:500;max-width:480px;overflow:hidden">
         <svg fill="none" stroke="#10B981" stroke-width="2" viewBox="0 0 24 24" style="width:14px;height:14px;flex-shrink:0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
         <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{fileName}}</span>
+        <span v-if="openedBy" style="border-left:1px solid #A7F3D0;padding-left:10px;display:flex;align-items:center;gap:5px;white-space:nowrap;flex-shrink:0">
+          <svg fill="none" stroke="#10B981" stroke-width="2" viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          {{openedBy.name}}
+        </span>
       </div>
       <div v-else style="display:flex;align-items:center;gap:7px;padding:5px 10px;background:#FEF2F2;border:1px solid #FECACA;border-radius:7px;font-size:12px;color:#991B1B;font-weight:500">
         <svg fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24" style="width:14px;height:14px;flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
