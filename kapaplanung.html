@@ -705,7 +705,7 @@ select.form-control{cursor:pointer}
         <div class="settings-section">
           <h3>Mein Name</h3>
           <div style="display:flex;gap:8px;align-items:center">
-            <input class="form-control" v-model="currentUserName" placeholder="z.B. Marius Reißdörfer" style="flex:1"
+            <input class="form-control" v-model="currentUserName" placeholder="Max Mustermann" style="flex:1"
               @input="$event => { localStorage.setItem('kapaUserName', currentUserName) }">
             <span style="font-size:12px;color:#94A3B8;white-space:nowrap">Wird beim Öffnen in die Datei geschrieben</span>
           </div>
@@ -755,7 +755,7 @@ select.form-control{cursor:pointer}
             <div v-if="!departmentList.length" style="font-size:13px;color:#94A3B8;padding:8px 0">Noch keine Abteilungen angelegt.</div>
           </div>
           <div style="display:flex;gap:8px">
-            <input class="form-control" v-model="newDepartmentName" placeholder="z.B. Grinding Köln" style="flex:1" @keydown.enter="addDepartment">
+            <input class="form-control" v-model="newDepartmentName" placeholder="z.B. Musterabteilung Köln" style="flex:1" @keydown.enter="addDepartment">
             <button class="btn btn-primary" @click="addDepartment">Hinzufügen</button>
           </div>
         </div>
@@ -1006,7 +1006,7 @@ select.form-control{cursor:pointer}
           </div>
           <div class="form-group">
             <label class="form-label">Abteilung</label>
-            <input class="form-control" v-model="memberModal.department" list="dept-list" placeholder="z.B. Grinding">
+            <input class="form-control" v-model="memberModal.department" list="dept-list" placeholder="Musterabteilung">
             <datalist id="dept-list">
               <option v-for="dep in departments" :key="dep" :value="dep"/>
             </datalist>
