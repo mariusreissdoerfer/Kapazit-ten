@@ -1306,16 +1306,18 @@ createApp({
         .filter(a => a.memberId===memberId && a.year===year && a.startKW<=kw && a.endKW>=kw)
         .reduce((s,a) => s + m.hoursPerWeek * (a.pct||100) / 100, 0);
     },
-    getWeekGrundlast(memberId) {
+    getWeekGrundlast(memberId, kw, year) {
       const m = this.members.find(x => x.id === memberId);
-      return m ? m.grundlastFactor * m.hoursPerWeek : 0;
+      if (!m) return 0;
+      const presenceFraction = Math.max(0, 1 - this.getWeekAbsence(memberId, kw, year) / m.hoursPerWeek);
+      return m.grundlastFactor * m.hoursPerWeek * presenceFraction;
     },
     getWeekCapacity(memberId) {
       const m = this.members.find(x => x.id === memberId);
       return m ? m.hoursPerWeek : 0;
     },
     getWeekAvailable(memberId, kw, year) {
-      return Math.max(0, this.getWeekCapacity(memberId) - this.getWeekAbsence(memberId, kw, year) - this.getWeekGrundlast(memberId));
+      return Math.max(0, this.getWeekCapacity(memberId) - this.getWeekAbsence(memberId, kw, year) - this.getWeekGrundlast(memberId, kw, year));
     },
     getWeekAllocated(memberId, kw, year) {
       return this.allocations
@@ -1326,7 +1328,7 @@ createApp({
       const m = this.members.find(x => x.id === memberId);
       if (!m || !m.hoursPerWeek) return 0;
       const total = this.getWeekAbsence(memberId, kw, year)
-                  + this.getWeekGrundlast(memberId)
+                  + this.getWeekGrundlast(memberId, kw, year)
                   + this.getWeekAllocated(memberId, kw, year);
       return total / m.hoursPerWeek * 100;
     },
@@ -1337,7 +1339,7 @@ createApp({
       let weeks = 0;
       for (const col of this.ganttCols) {
         const load = this.getWeekAbsence(memberId, col.kw, col.year)
-                   + this.getWeekGrundlast(memberId)
+                   + this.getWeekGrundlast(memberId, col.kw, col.year)
                    + this.getWeekAllocated(memberId, col.kw, col.year);
         if (load > 0) { totalLoad += load; weeks++; }
       }
@@ -1383,7 +1385,7 @@ createApp({
       if (!m) return '';
       const proj   = this.getWeekAllocated(memberId, kw, year);
       const abs    = this.getWeekAbsence(memberId, kw, year);
-      const gl     = this.getWeekGrundlast(memberId);
+      const gl     = this.getWeekGrundlast(memberId, kw, year);
       const total  = Math.round((abs + gl + proj) / m.hoursPerWeek * 100);
       const parts  = [`KW${kw}: ${total}% Gesamtauslastung`];
       if (proj > 0)  parts.push(`Projekte: ${this.formatH(proj)}h`);
