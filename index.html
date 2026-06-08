@@ -804,7 +804,7 @@ select.form-control{cursor:pointer}
           <div class="form-group">
             <label class="form-label">Projekt</label>
             <select class="form-control" v-model="allocModal.projectName" @change="onAllocProjectChange">
-              <option v-for="p in projects.filter(p=>p.status!=='Abgeschlossen')" :key="p.id" :value="p.name">{{p.name}}</option>
+              <option v-for="p in projects.filter(p=>p.status!=='Abgeschlossen' && (!globalDepts.length || (p.departments||[]).some(d=>globalDepts.includes(d))))" :key="p.id" :value="p.name">{{p.name}}</option>
             </select>
           </div>
         </div>
