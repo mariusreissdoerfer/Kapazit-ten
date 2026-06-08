@@ -298,7 +298,7 @@ select.form-control{cursor:pointer}
         <template v-if="view==='projekte'">
           <input class="search-input" v-model="projectSearch" placeholder="Suchen...">
         </template>
-        <template v-if="view==='dashboard' || view==='ressourcen' || view==='pipeline'">
+        <template v-if="view==='dashboard' || view==='ressourcen' || view==='pipeline' || view==='projekte' || view==='team'">
           <div style="position:relative">
             <button @click.stop="globalDeptDropdownOpen=!globalDeptDropdownOpen"
               :style="{display:'flex',alignItems:'center',gap:'6px',padding:'5px 10px',border:'1px solid '+(globalDepts.length?'#6366F1':'#E2E8F0'),borderRadius:'6px',background:globalDepts.length?'#EEF2FF':'#fff',color:globalDepts.length?'#4F46E5':'#475569',fontSize:'12px',fontWeight:600,cursor:'pointer',whiteSpace:'nowrap',height:'30px'}">
@@ -769,7 +769,7 @@ select.form-control{cursor:pointer}
         <table class="data-table">
           <thead><tr><th @click="sortBy('name')">Name</th><th>Abteilung</th><th>Std/Wo</th><th>Grundlast</th><th>Ort</th><th></th></tr></thead>
           <tbody>
-            <tr v-for="m in members" :key="m.id">
+            <tr v-for="m in visibleMembers" :key="m.id">
               <td><div style="display:flex;align-items:center;gap:8px">
                 <div :style="{width:'10px',height:'10px',borderRadius:'50%',background:m.color,flexShrink:0}"></div>
                 {{m.name}}
@@ -1193,7 +1193,9 @@ createApp({
       return this.members.filter(m => this.globalDepts.includes(m.department));
     },
     filteredSortedProjects() {
-      let list = this.projects;
+      let list = this.globalDepts.length
+        ? this.projects.filter(p => (p.departments||[]).some(d => this.globalDepts.includes(d)))
+        : this.projects;
       const q = this.projectSearch.toLowerCase();
       if (q) list = list.filter(p => p.name.toLowerCase().includes(q) || (p.projectId||'').toLowerCase().includes(q));
       const key = this.sortKey;
