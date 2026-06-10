@@ -118,6 +118,9 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#F1F5F9;color:#1E
 .gkw-add-row td{border-bottom:2px solid #94A3B8}
 .btn-add-alloc{font-size:10px;color:#6366F1;background:none;border:1px dashed #C7D2FE;cursor:pointer;padding:2px 7px;border-radius:4px;transition:all .15s}
 .btn-add-alloc:hover{background:#EEF2FF}
+.gantt-edit-btn{display:inline-flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;color:#94A3B8;padding:1px;border-radius:3px;opacity:0;transition:opacity .15s,color .15s;flex-shrink:0}
+.gantt-edit-btn:hover{color:#6366F1}
+.gkw-summary-row:hover .gantt-edit-btn{opacity:1}
 
 .today-header-line{position:relative}
 .today-header-line::after{content:'';position:absolute;bottom:-2px;left:50%;transform:translateX(-50%);width:2px;height:6px;background:#6366F1}
@@ -412,8 +415,13 @@ select.form-control{cursor:pointer}
                   <td class="gkw-member-td">
                     <div style="display:flex;align-items:center;gap:7px">
                       <div :style="{width:'9px',height:'9px',borderRadius:'50%',background:getProjectColor(pgrp.projectName),flexShrink:0}"></div>
-                      <div>
-                        <div style="font-size:12px;font-weight:700;color:#1E293B;line-height:1.2;overflow:hidden;text-overflow:ellipsis;max-width:140px" :title="pgrp.projectName">{{pgrp.projectName}}</div>
+                      <div style="flex:1;min-width:0">
+                        <div style="display:flex;align-items:center;gap:4px">
+                          <div style="font-size:12px;font-weight:700;color:#1E293B;line-height:1.2;overflow:hidden;text-overflow:ellipsis;max-width:120px" :title="pgrp.projectName">{{pgrp.projectName}}</div>
+                          <button class="gantt-edit-btn" @click.stop="openProjectModal(getProjectByName(pgrp.projectName))" title="Projekt bearbeiten">
+                            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="11" height="11"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                          </button>
+                        </div>
                         <div style="font-size:10px;color:#94A3B8">{{pgrp.memberGroups.length}} Mitglieder<template v-if="getProjectDeadlineLabel(pgrp.projectName)"> &middot; bis {{getProjectDeadlineLabel(pgrp.projectName)}}</template></div>
                       </div>
                     </div>
@@ -1694,6 +1702,9 @@ createApp({
     sortBy(key) {
       if (this.sortKey === key) this.sortAsc = !this.sortAsc;
       else { this.sortKey = key; this.sortAsc = true; }
+    },
+    getProjectByName(name) {
+      return this.projects.find(p => p.name === name) || null;
     },
     openProjectModal(proj) {
       this.projectModal = proj ? {...proj, departments: proj.departments || []} : {id:null, projectId:'', name:'', focus:'Konstruktion', theme:'', status:'Aktiv', priority:'Mittel', startDate:'', endDate:'', scope:'', pmEngineering:'', pmGlobal:'', departments:[]};
