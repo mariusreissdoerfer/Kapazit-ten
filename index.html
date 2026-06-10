@@ -118,6 +118,16 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#F1F5F9;color:#1E
 .gkw-add-row td{border-bottom:2px solid #94A3B8}
 .btn-add-alloc{font-size:10px;color:#6366F1;background:none;border:1px dashed #C7D2FE;cursor:pointer;padding:2px 7px;border-radius:4px;transition:all .15s}
 .btn-add-alloc:hover{background:#EEF2FF}
+.btn-add-alloc-divider{display:flex;align-items:center;gap:0;width:100%;cursor:pointer;background:none;border:none;padding:0 8px;color:#A5B4FC;transition:color .15s}
+.btn-add-alloc-divider:hover{color:#6366F1}
+.btn-add-alloc-divider:hover .add-divider-line{border-color:#6366F1}
+.btn-add-alloc-divider:hover .add-divider-plus{color:#6366F1;border-color:#6366F1}
+.add-divider-line{flex:1;border-top:1px solid #C7D2FE;transition:border-color .15s}
+.add-divider-plus{font-size:11px;font-weight:700;padding:0 5px;flex-shrink:0;line-height:1}
+@keyframes rowflash{0%{background:#EEF2FF}100%{background:transparent}}
+.alloc-sort-flash{animation:rowflash 0.5s ease}
+.gantt-edit-btn{display:inline-flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;color:#CBD5E1;padding:1px;border-radius:3px;transition:color .15s;flex-shrink:0}
+.gantt-edit-btn:hover{color:#6366F1}
 
 .today-header-line{position:relative}
 .today-header-line::after{content:'';position:absolute;bottom:-2px;left:50%;transform:translateX(-50%);width:2px;height:6px;background:#6366F1}
@@ -412,8 +422,13 @@ select.form-control{cursor:pointer}
                   <td class="gkw-member-td">
                     <div style="display:flex;align-items:center;gap:7px">
                       <div :style="{width:'9px',height:'9px',borderRadius:'50%',background:getProjectColor(pgrp.projectName),flexShrink:0}"></div>
-                      <div>
-                        <div style="font-size:12px;font-weight:700;color:#1E293B;line-height:1.2;overflow:hidden;text-overflow:ellipsis;max-width:140px" :title="pgrp.projectName">{{pgrp.projectName}}</div>
+                      <div style="flex:1;min-width:0">
+                        <div style="display:flex;align-items:center;gap:4px">
+                          <div style="font-size:12px;font-weight:700;color:#1E293B;line-height:1.2;overflow:hidden;text-overflow:ellipsis;max-width:120px" :title="pgrp.projectName">{{pgrp.projectName}}</div>
+                          <button class="gantt-edit-btn" @click.stop="openProjectModal(getProjectByName(pgrp.projectName))" title="Projekt bearbeiten">
+                            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="11" height="11"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                          </button>
+                        </div>
                         <div style="font-size:10px;color:#94A3B8">{{pgrp.memberGroups.length}} Mitglieder<template v-if="getProjectDeadlineLabel(pgrp.projectName)"> &middot; bis {{getProjectDeadlineLabel(pgrp.projectName)}}</template></div>
                       </div>
                     </div>
@@ -422,10 +437,10 @@ select.form-control{cursor:pointer}
                     class="gkw-util-td"
                     :class="{'today-kw': col.idx===currentColIdx, 'sel-kw': col.idx===selectedColIdx}"
                     :title="`KW${col.kw}: ${formatH(getProjectWeekHours(pgrp.projectName,col.kw,col.year))}h`">
-                    <div class="gkw-bar-track">
-                      <div class="gkw-bar-ref"></div>
-                      <div class="gkw-bar-fill" :style="getProjectWeekBarStyle(pgrp.projectName, col.kw, col.year)"></div>
-                    </div>
+                    <span v-if="getProjectWeekHours(pgrp.projectName, col.kw, col.year) > 0"
+                      style="font-size:10px;font-weight:600;color:#475569;display:block;text-align:center">
+                      {{formatH(getProjectWeekHours(pgrp.projectName, col.kw, col.year))}} h
+                    </span>
                   </td>
                 </tr>
                 <!-- One lane per member working on this project -->
@@ -486,59 +501,65 @@ select.form-control{cursor:pointer}
                     </div>
                   </td>
                 </tr>
-                <!-- One row per unique project (all segments in one track) -->
-                <tr v-for="grp in getMemberAllocGroups(member.id)" :key="grp.projectName" class="gkw-alloc-row" :style="{height: grp.laneCount * 26 + 'px'}">
+                <!-- Alle Zeilen (Projekte + Abwesenheit) gemeinsam sortiert -->
+                <tr v-for="grp in getMemberAllocGroups(member.id)" :key="grp.projectName" class="gkw-alloc-row" :class="{'alloc-sort-flash': reorderFlashId === member.id}" :style="{height: grp.laneCount * 26 + 'px'}">
                   <td class="gkw-alloc-td-name">
                     <div class="gkw-alloc-label">
-                      <div class="proj-color-dot" :style="{background:getProjectColor(grp.projectName)}"></div>
-                      <span :title="grp.projectName">{{grp.projectName}}</span>
+                      <template v-if="grp.isAbsence">
+                        <div class="proj-color-dot" style="background:#94A3B8"></div>
+                        <span>Abwesenheit</span>
+                        <button @click="openNewAbsenceModal(member.id)" style="background:#475569;color:#fff;border:none;border-radius:3px;width:14px;height:14px;font-size:12px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;padding:0">+</button>
+                      </template>
+                      <template v-else>
+                        <div class="proj-color-dot" :style="{background:getProjectColor(grp.projectName)}"></div>
+                        <span :title="grp.projectName">{{grp.projectName}}</span>
+                        <button class="gantt-edit-btn" @click.stop="openProjectModal(getProjectByName(grp.projectName))" title="Projekt bearbeiten">
+                          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="11" height="11"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </button>
+                      </template>
                     </div>
                   </td>
                   <td :colspan="ganttColCount" class="gkw-bar-td">
-                    <div class="gantt-bar" v-for="alloc in grp.allocs" :key="alloc.id"
-                      :class="{dragging: dragState && dragState.item===alloc}"
-                      :style="getBarStyleLaned(alloc, grp.laneOf[alloc.id]||0, grp.laneCount)"
-                      @mousedown.prevent="startDrag($event, alloc, 'move')"
-                      @dblclick.prevent.stop="editAlloc(alloc)">
-                      <div class="bar-handle bar-handle-left" @mousedown.prevent.stop="startDrag($event, alloc, 'left')"></div>
-                      <span class="bar-label">{{alloc.projectName}} &middot; {{formatH(alloc.hoursPerWeek)}}h/Wo &middot; {{allocPct(alloc)}}%</span>
-                      <div class="bar-handle bar-handle-right" @mousedown.prevent.stop="startDrag($event, alloc, 'right')"></div>
-                    </div>
-                    <div v-if="getProjectDeadlineColIdx(grp.projectName) !== null"
-                      class="gantt-deadline"
-                      :style="getDeadlineStyle(grp.projectName)"
-                      :title="'Deadline: ' + getProjectDeadlineLabel(grp.projectName)"></div>
+                    <template v-if="grp.isAbsence">
+                      <div class="gantt-bar gantt-bar-absence" v-for="abs in grp.allocs" :key="abs.id"
+                        :class="{dragging: dragState && dragState.item===abs}"
+                        :style="getAbsBarStyleLaned(abs, grp.laneOf[abs.id]||0)"
+                        @mousedown.prevent="startDrag($event, abs, 'move')"
+                        @dblclick.prevent.stop="editAbsence(abs)">
+                        <div class="bar-handle bar-handle-left" @mousedown.prevent.stop="startDrag($event, abs, 'left')"></div>
+                        <span class="bar-label">{{abs.pct}}% Abwesend</span>
+                        <div class="bar-handle bar-handle-right" @mousedown.prevent.stop="startDrag($event, abs, 'right')"></div>
+                      </div>
+                    </template>
+                    <template v-else>
+                      <div class="gantt-bar" v-for="alloc in grp.allocs" :key="alloc.id"
+                        :class="{dragging: dragState && dragState.item===alloc}"
+                        :style="getBarStyleLaned(alloc, grp.laneOf[alloc.id]||0, grp.laneCount)"
+                        @mousedown.prevent="startDrag($event, alloc, 'move')"
+                        @dblclick.prevent.stop="editAlloc(alloc)">
+                        <div class="bar-handle bar-handle-left" @mousedown.prevent.stop="startDrag($event, alloc, 'left')"></div>
+                        <span class="bar-label">{{alloc.projectName}} &middot; {{formatH(alloc.hoursPerWeek)}}h/Wo &middot; {{allocPct(alloc)}}%</span>
+                        <div class="bar-handle bar-handle-right" @mousedown.prevent.stop="startDrag($event, alloc, 'right')"></div>
+                      </div>
+                      <div v-if="getProjectDeadlineColIdx(grp.projectName) !== null"
+                        class="gantt-deadline"
+                        :style="getDeadlineStyle(grp.projectName)"
+                        :title="'Deadline: ' + getProjectDeadlineLabel(grp.projectName)"></div>
+                    </template>
                   </td>
                 </tr>
-                <!-- One absence row for all absences of this member -->
-                <template v-for="absGroup in [getMemberAbsenceLanes(member.id)]" :key="'absrow-'+member.id">
-                <tr class="gkw-alloc-row" :style="{height: absGroup.laneCount * 26 + 'px'}">
-                  <td class="gkw-alloc-td-name">
-                    <div class="gkw-alloc-label">
-                      <div class="proj-color-dot" style="background:#94A3B8"></div>
-                      <span>Abwesenheit</span>
-                      <button @click="openNewAbsenceModal(member.id)" style="background:#475569;color:#fff;border:none;border-radius:3px;width:14px;height:14px;font-size:12px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;padding:0">+</button>
-                    </div>
-                  </td>
-                  <td :colspan="ganttColCount" class="gkw-bar-td">
-                    <div class="gantt-bar gantt-bar-absence" v-for="abs in absGroup.absences" :key="abs.id"
-                      :class="{dragging: dragState && dragState.item===abs}"
-                      :style="getAbsBarStyleLaned(abs, absGroup.laneOf[abs.id]||0)"
-                      @mousedown.prevent="startDrag($event, abs, 'move')"
-                      @dblclick.prevent.stop="editAbsence(abs)">
-                      <div class="bar-handle bar-handle-left" @mousedown.prevent.stop="startDrag($event, abs, 'left')"></div>
-                      <span class="bar-label">{{abs.pct}}% Abwesend</span>
-                      <div class="bar-handle bar-handle-right" @mousedown.prevent.stop="startDrag($event, abs, 'right')"></div>
-                    </div>
-                  </td>
-                </tr>
-                </template>
                 <!-- Add row -->
                 <tr class="gkw-add-row">
-                  <td class="gkw-add-td-name">
-                    <button class="btn-add-alloc" @click="openNewAllocModal(member.id)">+ Zuweisung</button>
+                  <td class="gkw-add-td-name" style="padding:1px 6px;height:14px">
+                    <button class="btn-add-alloc-divider" @click="openNewAllocModal(member.id)">
+                      <span class="add-divider-line"></span>
+                      <span class="add-divider-plus">+</span>
+                      <span class="add-divider-line"></span>
+                    </button>
                   </td>
-                  <td :colspan="ganttColCount" style="background:#FAFAFA"></td>
+                  <td :colspan="ganttColCount" style="background:#FAFAFA;cursor:pointer" @click="openNewAllocModal(member.id)">
+                    <div style="height:100%;display:flex;align-items:center"><span style="border-top:1px solid #E2E8F0;flex:1;display:block"></span></div>
+                  </td>
                 </tr>
               </template>
             </tbody> <!-- end Mitarbeiter-View -->
@@ -807,9 +828,12 @@ select.form-control{cursor:pointer}
           </div>
           <div class="form-group">
             <label class="form-label">Projekt</label>
-            <select class="form-control" v-model="allocModal.projectName" @change="onAllocProjectChange">
-              <option v-for="p in projects.filter(p=>p.status!=='Abgeschlossen' && (!globalDepts.length || (p.departments||[]).some(d=>globalDepts.includes(d))))" :key="p.id" :value="p.name">{{p.name}}</option>
-            </select>
+            <div style="display:flex;gap:6px;align-items:center">
+              <select class="form-control" v-model="allocModal.projectName" @change="onAllocProjectChange">
+                <option v-for="p in projects.filter(p=>p.status!=='Abgeschlossen' && (!globalDepts.length || (p.departments||[]).some(d=>globalDepts.includes(d))))" :key="p.id" :value="p.name">{{p.name}}</option>
+              </select>
+              <button type="button" @click="openNewProjectFromAlloc" title="Neues Projekt anlegen" style="flex-shrink:0;background:#6366F1;color:#fff;border:none;border-radius:7px;width:30px;height:30px;font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>
+            </div>
           </div>
         </div>
         <div class="form-row">
@@ -983,7 +1007,7 @@ select.form-control{cursor:pointer}
       </div>
       <div class="modal-footer">
         <button v-if="projectModal.id" class="btn btn-danger" @click="deleteProject(projectModal.id);showProjectModal=false">Löschen</button>
-        <button class="btn btn-secondary" @click="showProjectModal=false">Abbrechen</button>
+        <button class="btn btn-secondary" @click="showProjectModal=false;if(returnToAllocModal){showAllocModal=true;returnToAllocModal=false}">Abbrechen</button>
         <button class="btn btn-primary" @click="saveProject">Speichern</button>
       </div>
     </div>
@@ -1143,6 +1167,7 @@ createApp({
 
       // Drag state
       dragState: null, // {item, type:'move'|'left'|'right', startX, origStartKW, origEndKW}
+      reorderFlashId: null,
 
       // Kanban
       kanbanDragItem: null,
@@ -1150,9 +1175,10 @@ createApp({
 
       // Modals
       showAllocModal: false,
-      allocModal: {id:null, memberId:null, projectName:'', focus:'Konstruktion', startKW:23, endKW:26, year:new Date().getFullYear(), hoursPerWeek:8, pct:25, inputMode:'hours'},
+      allocModal: {id:null, memberId:null, projectName:'', focus:'Konstruktion', startKW:23, endKW:26, year:new Date().getFullYear(), hoursPerWeek:8, pct:25, inputMode:'pct'},
       showAbsenceModal: false,
       absenceModal: {id:null, memberId:null, startKW:23, endKW:26, year:new Date().getFullYear(), pct:100},
+      returnToAllocModal: false,
       showProjectModal: false,
       projectModal: {id:null, projectId:'', name:'', focus:'Konstruktion', theme:'', status:'Aktiv', priority:'Mittel', startDate:'', endDate:'', scope:'', pmEngineering:'', pmGlobal:'', departments:[]},
       showMemberModal: false,
@@ -1398,24 +1424,40 @@ createApp({
       parts.push(`Kapazität: ${m.hoursPerWeek}h`);
       return parts.join(' · ');
     },
-    formatH(h) { return h ? Math.round(h * 10) / 10 : 0; },
+    formatH(h) { return h ? Math.round(h) : 0; },
 
     // ── Gantt bar helpers ────────────────────────────────────────────
     getMemberAllocs(memberId) {
       return this.allocations.filter(a => a.memberId === memberId && a.year >= this.ganttStartYear && a.year < this.ganttStartYear + this.ganttYearCount);
     },
     getMemberAllocGroups(memberId) {
-      const order = [];
       const map = {};
       this.getMemberAllocs(memberId).forEach(a => {
-        if (!map[a.projectName]) { map[a.projectName] = {projectName: a.projectName, allocs: []}; order.push(a.projectName); }
+        if (!map[a.projectName]) map[a.projectName] = {projectName: a.projectName, isAbsence: false, allocs: []};
         map[a.projectName].allocs.push(a);
       });
-      return order.map(n => {
-        const grp = map[n];
+      const absences = this.getMemberAbsences(memberId);
+      map['__absence__'] = {projectName: '__absence__', isAbsence: true, allocs: absences};
+      const groups = Object.values(map).map(grp => {
         const {laneCount, laneOf} = this.computeLanes(grp.allocs);
-        return {...grp, laneCount, laneOf};
+        const proj = grp.isAbsence ? null : this.projects.find(p => p.name === grp.projectName);
+        const endDate = proj && proj.endDate ? proj.endDate : '9999-12-31';
+        const minKW = grp.allocs.length ? Math.min(...grp.allocs.map(a => a.year * 53 + a.endKW)) : 999999;
+        return {...grp, laneCount, laneOf, endDate, minKW};
       });
+      if (!this.dragState) {
+        groups.sort((a, b) => a.minKW - b.minKW || a.endDate.localeCompare(b.endDate));
+        if (!this._sortCache) this._sortCache = {};
+        this._sortCache[memberId] = groups.map(g => g.projectName);
+      } else {
+        const order = this._sortCache && this._sortCache[memberId];
+        if (order) groups.sort((a, b) => {
+          const ai = order.indexOf(a.projectName);
+          const bi = order.indexOf(b.projectName);
+          return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi);
+        });
+      }
+      return groups;
     },
     getMemberAbsences(memberId) {
       return this.absences.filter(a => a.memberId === memberId && a.year >= this.ganttStartYear && a.year < this.ganttStartYear + this.ganttYearCount);
@@ -1538,8 +1580,11 @@ createApp({
     },
     _onMouseUp() {
       if (this.dragState) {
+        const memberId = this.dragState.item.memberId;
         this.autoSave();
         this.dragState = null;
+        this.reorderFlashId = memberId;
+        setTimeout(() => { this.reorderFlashId = null; }, 500);
       }
     },
 
@@ -1571,12 +1616,12 @@ createApp({
         startKW: this.currentKW,
         endKW:   Math.min(52, this.currentKW + 3),
         year: new Date().getFullYear(),
-        hoursPerWeek: 8, pct: 25, inputMode: 'hours',
+        hoursPerWeek: 8, pct: 25, inputMode: 'pct',
       };
       this.showAllocModal = true;
     },
     editAlloc(a) {
-      this.allocModal = {id:a.id, memberId:a.memberId, projectName:a.projectName, focus:a.focus||'Konstruktion', startKW:a.startKW, endKW:a.endKW, year:a.year, hoursPerWeek:a.hoursPerWeek, pct:25, inputMode:'hours'};
+      this.allocModal = {id:a.id, memberId:a.memberId, projectName:a.projectName, focus:a.focus||'Konstruktion', startKW:a.startKW, endKW:a.endKW, year:a.year, hoursPerWeek:a.hoursPerWeek, pct:25, inputMode:'pct'};
       this.showAllocModal = true;
     },
     getMemberName(memberId) {
@@ -1595,6 +1640,11 @@ createApp({
     getProjectWeekHours(projectName, kw, year) {
       return this.allocations
         .filter(a => a.projectName === projectName && a.year === year && a.startKW <= kw && a.endKW >= kw)
+        .reduce((s, a) => s + a.hoursPerWeek, 0);
+    },
+    getMemberProjectWeekHours(memberId, projectName, kw, year) {
+      return this.allocations
+        .filter(a => a.memberId === memberId && a.projectName === projectName && a.year === year && a.startKW <= kw && a.endKW >= kw)
         .reduce((s, a) => s + a.hoursPerWeek, 0);
     },
     getProjectWeekBarStyle(projectName, kw, year) {
@@ -1695,8 +1745,18 @@ createApp({
       if (this.sortKey === key) this.sortAsc = !this.sortAsc;
       else { this.sortKey = key; this.sortAsc = true; }
     },
+    getProjectByName(name) {
+      return this.projects.find(p => p.name === name) || null;
+    },
     openProjectModal(proj) {
+      this.returnToAllocModal = false;
       this.projectModal = proj ? {...proj, departments: proj.departments || []} : {id:null, projectId:'', name:'', focus:'Konstruktion', theme:'', status:'Aktiv', priority:'Mittel', startDate:'', endDate:'', scope:'', pmEngineering:'', pmGlobal:'', departments:[]};
+      this.showProjectModal = true;
+    },
+    openNewProjectFromAlloc() {
+      this.returnToAllocModal = true;
+      this.showAllocModal = false;
+      this.projectModal = {id:null, projectId:'', name:'', focus:'Konstruktion', theme:'', status:'Aktiv', priority:'Mittel', startDate:'', endDate:'', scope:'', pmEngineering:'', pmGlobal:'', departments:[]};
       this.showProjectModal = true;
     },
     saveProject() {
@@ -1712,13 +1772,24 @@ createApp({
       this.showProjectModal = false;
       this.autoSave();
       this.notify('Projekt gespeichert', 'success');
+      if (this.returnToAllocModal && !this.projectModal.id) {
+        const newName = this.projects[this.projects.length - 1].name;
+        this.allocModal.projectName = newName;
+        this.showAllocModal = true;
+        this.returnToAllocModal = false;
+      }
     },
     deleteProject(id) {
-      const i = this.projects.findIndex(p => p.id === id);
-      if (i >= 0) this.projects.splice(i, 1);
+      const proj = this.projects.find(p => p.id === id);
+      if (!proj) return;
+      const name = proj.name;
+      this.projects.splice(this.projects.findIndex(p => p.id === id), 1);
+      const before = this.allocations.length;
+      this.allocations = this.allocations.filter(a => a.projectName !== name);
+      const removed = before - this.allocations.length;
       this.showProjectModal = false;
       this.autoSave();
-      this.notify('Projekt gelöscht', 'info');
+      this.notify(`Projekt gelöscht${removed ? ` (${removed} Zuweisung${removed===1?'':'en'} entfernt)` : ''}`, 'info');
     },
 
     // ── Members ──────────────────────────────────────────────────────
