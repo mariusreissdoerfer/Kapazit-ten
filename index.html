@@ -846,41 +846,66 @@ select.form-control{cursor:pointer}
             </div>
           </div>
         </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">Von KW</label>
-            <input class="form-control" type="number" min="1" max="52" v-model.number="allocModal.startKW">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Bis KW</label>
-            <input class="form-control" type="number" min="1" max="52" v-model.number="allocModal.endKW">
-          </div>
-          <div class="form-group">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:10px">
+          <!-- Von KW -->
+          <div class="form-group" style="margin:0">
             <label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
-              Gesamtstunden
-              <span v-if="!allocModal.totalHours && allocModalTotalHoursCalc" style="font-size:10px;color:#94A3B8;font-weight:400">≈ {{allocModalTotalHoursCalc}}h</span>
+              <span>Von KW</span>
+              <button type="button" @click="setDerived('startKW')" :title="allocModal.derived==='startKW'?'Wird berechnet':'Fixiert'" style="background:none;border:none;cursor:pointer;padding:1px;display:inline-flex;border-radius:3px;transition:color .15s" :style="{color:allocModal.derived==='startKW'?'#94A3B8':'#6366F1'}">
+                <svg v-if="allocModal.derived!=='startKW'" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                <svg v-else viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+              </button>
             </label>
-            <input class="form-control" type="number" min="0" step="0.5" v-model.number="allocModal.totalHours" placeholder="z.B. 120">
+            <input class="form-control" type="number" min="1" max="52" v-model.number="allocModal.startKW" @focus="setDerivedOnFocus('startKW')" :style="allocModal.derived==='startKW'?{background:'#EFF6FF',color:'#3B82F6',fontWeight:600}:{}">
           </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
+          <!-- Bis KW -->
+          <div class="form-group" style="margin:0">
             <label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
-              Auslastung
-              <div style="display:flex;border:1px solid #E2E8F0;border-radius:5px;overflow:hidden">
-                <button @click="allocModal.inputMode='hours'" :style="{background:allocModal.inputMode==='hours'?'#6366F1':'#fff',color:allocModal.inputMode==='hours'?'#fff':'#64748B',border:'none',padding:'2px 8px',fontSize:'11px',fontWeight:600,cursor:'pointer'}">h/Wo</button>
-                <button @click="allocModal.inputMode='pct'" :style="{background:allocModal.inputMode==='pct'?'#6366F1':'#fff',color:allocModal.inputMode==='pct'?'#fff':'#64748B',border:'none',borderLeft:'1px solid #E2E8F0',padding:'2px 8px',fontSize:'11px',fontWeight:600,cursor:'pointer'}">%</button>
-              </div>
+              <span>Bis KW</span>
+              <button type="button" @click="setDerived('endKW')" :title="allocModal.derived==='endKW'?'Wird berechnet':'Fixiert'" style="background:none;border:none;cursor:pointer;padding:1px;display:inline-flex;border-radius:3px;transition:color .15s" :style="{color:allocModal.derived==='endKW'?'#94A3B8':'#6366F1'}">
+                <svg v-if="allocModal.derived!=='endKW'" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                <svg v-else viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+              </button>
             </label>
-            <div style="display:flex;align-items:center;gap:6px">
-              <input v-if="allocModal.inputMode==='hours'" class="form-control" type="number" min="0" step="0.5" v-model.number="allocModal.hoursPerWeek">
-              <input v-else class="form-control" type="number" min="0" max="100" step="5" v-model.number="allocModal.pct">
-              <span style="font-size:12px;color:#94A3B8;white-space:nowrap">
-                <template v-if="allocModal.inputMode==='pct'">≈ {{allocModalHours}}h/Wo</template>
-                <template v-else>≈ {{allocModalPct}}%</template>
+            <input class="form-control" type="number" min="1" max="52" v-model.number="allocModal.endKW" @focus="setDerivedOnFocus('endKW')" :style="allocModal.derived==='endKW'?{background:'#EFF6FF',color:'#3B82F6',fontWeight:600}:{}">
+          </div>
+          <!-- Kapazität -->
+          <div class="form-group" style="margin:0">
+            <label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
+              <span style="display:flex;align-items:center;gap:4px">
+                Kapazität
+                <div style="display:flex;border:1px solid #E2E8F0;border-radius:4px;overflow:hidden">
+                  <button type="button" @click="allocModal.inputMode='hours'" :style="{background:allocModal.inputMode==='hours'?'#6366F1':'#fff',color:allocModal.inputMode==='hours'?'#fff':'#64748B',border:'none',padding:'1px 6px',fontSize:'10px',fontWeight:600,cursor:'pointer'}">h/Wo</button>
+                  <button type="button" @click="allocModal.inputMode='pct'" :style="{background:allocModal.inputMode==='pct'?'#6366F1':'#fff',color:allocModal.inputMode==='pct'?'#fff':'#64748B',border:'none',borderLeft:'1px solid #E2E8F0',padding:'1px 6px',fontSize:'10px',fontWeight:600,cursor:'pointer'}">%</button>
+                </div>
+              </span>
+              <button type="button" @click="setDerived('capacity')" :title="allocModal.derived==='capacity'?'Wird berechnet':'Fixiert'" style="background:none;border:none;cursor:pointer;padding:1px;display:inline-flex;border-radius:3px;transition:color .15s" :style="{color:allocModal.derived==='capacity'?'#94A3B8':'#6366F1'}">
+                <svg v-if="allocModal.derived!=='capacity'" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                <svg v-else viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+              </button>
+            </label>
+            <div style="display:flex;align-items:center;gap:5px">
+              <input v-if="allocModal.inputMode==='hours'" class="form-control" type="number" min="0" step="0.5" v-model.number="allocModal.hoursPerWeek" @focus="setDerivedOnFocus('capacity')" :style="allocModal.derived==='capacity'?{background:'#EFF6FF',color:'#3B82F6',fontWeight:600}:{}">
+              <input v-else class="form-control" type="number" min="0" max="100" step="5" v-model.number="allocModal.pct" @focus="setDerivedOnFocus('capacity')" :style="allocModal.derived==='capacity'?{background:'#EFF6FF',color:'#3B82F6',fontWeight:600}:{}">
+              <span style="font-size:11px;color:#94A3B8;white-space:nowrap">
+                <template v-if="allocModal.inputMode==='pct'">= {{allocModalHours}}h</template>
+                <template v-else>= {{allocModalPct}}%</template>
               </span>
             </div>
           </div>
+          <!-- Gesamt h -->
+          <div class="form-group" style="margin:0">
+            <label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
+              <span>Gesamt h</span>
+              <button type="button" @click="setDerived('totalHours')" :title="allocModal.derived==='totalHours'?'Wird berechnet':'Fixiert'" style="background:none;border:none;cursor:pointer;padding:1px;display:inline-flex;border-radius:3px;transition:color .15s" :style="{color:allocModal.derived==='totalHours'?'#94A3B8':'#6366F1'}">
+                <svg v-if="allocModal.derived!=='totalHours'" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                <svg v-else viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+              </button>
+            </label>
+            <input class="form-control" type="number" min="0" step="0.5" v-model.number="allocModal.totalHours" @focus="setDerivedOnFocus('totalHours')" :style="allocModal.derived==='totalHours'?{background:'#EFF6FF',color:'#3B82F6',fontWeight:600}:{}">
+          </div>
+        </div>
+        <div class="form-row">
           <div class="form-group">
             <label class="form-label">Fokus</label>
             <select class="form-control" v-model="allocModal.focus">
@@ -1196,7 +1221,7 @@ createApp({
 
       // Modals
       showAllocModal: false,
-      allocModal: {id:null, memberId:null, projectName:'', focus:'Konstruktion', startKW:23, endKW:26, year:new Date().getFullYear(), hoursPerWeek:8, pct:25, inputMode:'pct', totalHours:''},
+      allocModal: {id:null, memberId:null, projectName:'', focus:'Konstruktion', startKW:23, endKW:26, year:new Date().getFullYear(), hoursPerWeek:8, pct:25, inputMode:'pct', totalHours:0, derived:'totalHours'},
       showAbsenceModal: false,
       absenceModal: {id:null, memberId:null, startKW:23, endKW:26, year:new Date().getFullYear(), pct:100},
       returnToAllocModal: false,
@@ -1323,12 +1348,6 @@ createApp({
       const m = this.members.find(x => x.id === this.allocModal.memberId);
       if (!m || !m.hoursPerWeek) return 0;
       return Math.round((this.allocModal.hoursPerWeek || 0) / m.hoursPerWeek * 100);
-    },
-    allocModalTotalHoursCalc() {
-      const weeks = Math.max(0, this.allocModal.endKW - this.allocModal.startKW + 1);
-      if (!weeks) return 0;
-      const hPerWeek = this.allocModal.inputMode === 'pct' ? this.allocModalHours : this.allocModal.hoursPerWeek;
-      return Math.round(weeks * hPerWeek * 10) / 10;
     },
     projectAllocGroups() {
       const order = [];
@@ -1643,12 +1662,14 @@ createApp({
         startKW: this.currentKW,
         endKW:   Math.min(52, this.currentKW + 3),
         year: new Date().getFullYear(),
-        hoursPerWeek: 8, pct: 25, inputMode: 'pct', totalHours: '',
+        hoursPerWeek: 8, pct: 25, inputMode: 'pct', totalHours: 0, derived: 'totalHours',
       };
+      this.$nextTick(() => this.recalcDerived());
       this.showAllocModal = true;
     },
     editAlloc(a) {
-      this.allocModal = {id:a.id, memberId:a.memberId, projectName:a.projectName, focus:a.focus||'Konstruktion', startKW:a.startKW, endKW:a.endKW, year:a.year, hoursPerWeek:a.hoursPerWeek, pct:25, inputMode:'pct', totalHours:''};
+      this.allocModal = {id:a.id, memberId:a.memberId, projectName:a.projectName, focus:a.focus||'Konstruktion', startKW:a.startKW, endKW:a.endKW, year:a.year, hoursPerWeek:a.hoursPerWeek, pct:25, inputMode:'pct', totalHours:0, derived:'totalHours'};
+      this.$nextTick(() => this.recalcDerived());
       this.showAllocModal = true;
     },
     getMemberName(memberId) {
@@ -1715,21 +1736,46 @@ createApp({
         startKW: this.currentKW,
         endKW: Math.min(52, this.currentKW + 3),
         year: new Date().getFullYear(),
-        hoursPerWeek: 8, pct: 25, inputMode: 'pct', totalHours: '',
+        hoursPerWeek: 8, pct: 25, inputMode: 'pct', totalHours: 0, derived: 'totalHours',
       };
+      this.$nextTick(() => this.recalcDerived());
       this.showAllocModal = true;
     },
     onAllocProjectChange() {
       const proj = this.projects.find(p => p.name === this.allocModal.projectName);
       if (proj && proj.focus) this.allocModal.focus = proj.focus;
     },
-    applyTotalHours() {
-      const total = Number(this.allocModal.totalHours);
-      if (!total) return;
+    recalcDerived() {
       const hPerWeek = this.allocModal.inputMode === 'pct' ? this.allocModalHours : this.allocModal.hoursPerWeek;
-      if (!hPerWeek) return;
-      const weeks = Math.ceil(total / hPerWeek);
-      this.allocModal.endKW = Math.min(52, this.allocModal.startKW + weeks - 1);
+      const dauer = Math.max(1, this.allocModal.endKW - this.allocModal.startKW + 1);
+      const total = Number(this.allocModal.totalHours);
+      if (this.allocModal.derived === 'totalHours') {
+        this.allocModal.totalHours = Math.round(dauer * hPerWeek * 10) / 10;
+      } else if (this.allocModal.derived === 'endKW') {
+        if (hPerWeek > 0 && total > 0)
+          this.allocModal.endKW = Math.min(52, this.allocModal.startKW + Math.ceil(total / hPerWeek) - 1);
+      } else if (this.allocModal.derived === 'startKW') {
+        if (hPerWeek > 0 && total > 0)
+          this.allocModal.startKW = Math.max(1, this.allocModal.endKW - Math.ceil(total / hPerWeek) + 1);
+      } else if (this.allocModal.derived === 'capacity') {
+        if (total > 0 && dauer > 0) {
+          const newH = Math.round(total / dauer * 10) / 10;
+          if (this.allocModal.inputMode === 'pct') {
+            const m = this.members.find(x => x.id === this.allocModal.memberId);
+            if (m && m.hoursPerWeek) this.allocModal.pct = Math.round(newH / m.hoursPerWeek * 100);
+          } else {
+            this.allocModal.hoursPerWeek = newH;
+          }
+        }
+      }
+    },
+    setDerived(field) {
+      this.allocModal.derived = field;
+    },
+    setDerivedOnFocus(field) {
+      if (this.allocModal.derived !== field) return;
+      const priority = ['totalHours', 'endKW', 'startKW', 'capacity'];
+      this.allocModal.derived = priority.find(f => f !== field);
     },
     saveAlloc() {
       if (this.allocModal.inputMode === 'pct') {
@@ -1742,7 +1788,7 @@ createApp({
       if (this.allocModal.startKW > this.allocModal.endKW) {
         this.notify('Von-KW muss ≤ Bis-KW sein', 'error'); return;
       }
-      const {inputMode, pct, totalHours, ...saveData} = this.allocModal;
+      const {inputMode, pct, totalHours, derived, ...saveData} = this.allocModal;
       if (saveData.id) {
         const idx = this.allocations.findIndex(a => a.id === saveData.id);
         if (idx >= 0) Object.assign(this.allocations[idx], saveData);
@@ -2390,10 +2436,13 @@ createApp({
   },
 
   watch: {
-    'allocModal.totalHours'() { this.applyTotalHours(); },
-    'allocModal.startKW'() { if (this.allocModal.totalHours) this.applyTotalHours(); },
-    'allocModal.hoursPerWeek'() { if (this.allocModal.totalHours) this.applyTotalHours(); },
-    'allocModal.pct'() { if (this.allocModal.totalHours) this.applyTotalHours(); },
+    'allocModal.endKW'()        { if (this.allocModal.derived !== 'endKW')      this.recalcDerived(); },
+    'allocModal.hoursPerWeek'() { if (this.allocModal.derived !== 'capacity')   this.recalcDerived(); },
+    'allocModal.pct'()          { if (this.allocModal.derived !== 'capacity')   this.recalcDerived(); },
+    'allocModal.totalHours'()   { if (this.allocModal.derived !== 'totalHours') this.recalcDerived(); },
+    'allocModal.startKW'()      { if (this.allocModal.derived !== 'startKW') this.recalcDerived(); },
+    'allocModal.derived'()      { this.recalcDerived(); },
+    'allocModal.inputMode'()    { this.recalcDerived(); },
     currentUserName(v) { localStorage.setItem('kapaUserName', v); },
     globalDepts(v) { localStorage.setItem('kapaGlobalDepts', JSON.stringify(v)); if (this.view === 'dashboard') this.renderCharts(); },
     view(v) {
