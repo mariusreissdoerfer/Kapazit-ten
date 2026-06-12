@@ -113,6 +113,8 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#F1F5F9;color:#1E
 .gantt-bar-absence .bar-label{color:#fff;font-weight:600;text-shadow:0 1px 2px rgba(0,0,0,.3)}
 .gantt-deadline{position:absolute;top:0;bottom:0;width:2px;background:#EF4444;z-index:6;border-radius:1px;pointer-events:all;cursor:default}
 .gantt-deadline::before{content:'◆';position:absolute;top:-1px;left:-5px;font-size:10px;color:#EF4444;line-height:1}
+.gantt-budget-line{position:absolute;top:0;bottom:0;width:2px;background:#10B981;z-index:6;border-radius:1px;pointer-events:all;cursor:default}
+.gantt-budget-line::before{content:'▲';position:absolute;top:-1px;left:-4px;font-size:9px;color:#10B981;line-height:1}
 
 .gkw-add-td-name{position:sticky;left:0;z-index:5;background:#FAFAFA;border-right:2px solid #E2E8F0;min-width:190px;width:190px;padding:1px 0 2px 20px;border-bottom:2px solid #E2E8F0}
 .gkw-add-row td{border-bottom:2px solid #94A3B8}
@@ -429,7 +431,7 @@ select.form-control{cursor:pointer}
                             <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="11" height="11"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                           </button>
                         </div>
-                        <div style="font-size:10px;color:#94A3B8">{{pgrp.memberGroups.length}} Mitglieder<template v-if="getProjectDeadlineLabel(pgrp.projectName)"> &middot; bis {{getProjectDeadlineLabel(pgrp.projectName)}}</template></div>
+                        <div style="font-size:10px;color:#94A3B8">{{pgrp.memberGroups.length}} Mitglieder<template v-if="getProjectDeadlineLabel(pgrp.projectName)"> &middot; bis {{getProjectDeadlineLabel(pgrp.projectName)}}</template><template v-if="getProjectBudgetColIdx(pgrp.projectName) !== null"> &middot; <span style="color:#10B981">▲ Budget KW{{ganttCols[getProjectBudgetColIdx(pgrp.projectName)].kw}}/{{ganttCols[getProjectBudgetColIdx(pgrp.projectName)].year}}</span></template></div>
                       </div>
                     </div>
                   </td>
@@ -465,6 +467,10 @@ select.form-control{cursor:pointer}
                       class="gantt-deadline"
                       :style="getDeadlineStyle(pgrp.projectName)"
                       :title="'Deadline: ' + getProjectDeadlineLabel(pgrp.projectName)"></div>
+                    <div v-if="getProjectBudgetColIdx(pgrp.projectName) !== null"
+                      class="gantt-budget-line"
+                      :style="getBudgetLineStyle(pgrp.projectName)"
+                      :title="getProjectBudgetLabel(pgrp.projectName)"></div>
                   </td>
                 </tr>
                 <!-- Add row -->
@@ -849,6 +855,13 @@ select.form-control{cursor:pointer}
             <label class="form-label">Bis KW</label>
             <input class="form-control" type="number" min="1" max="52" v-model.number="allocModal.endKW">
           </div>
+          <div class="form-group">
+            <label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
+              Gesamtstunden
+              <span v-if="!allocModal.totalHours && allocModalTotalHoursCalc" style="font-size:10px;color:#94A3B8;font-weight:400">≈ {{allocModalTotalHoursCalc}}h</span>
+            </label>
+            <input class="form-control" type="number" min="0" step="0.5" v-model.number="allocModal.totalHours" placeholder="z.B. 120">
+          </div>
         </div>
         <div class="form-row">
           <div class="form-group">
@@ -983,6 +996,10 @@ select.form-control{cursor:pointer}
           <div class="form-group">
             <label class="form-label">Enddatum</label>
             <input class="form-control" type="date" v-model="projectModal.endDate">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Stundenbudget (h)</label>
+            <input class="form-control" type="number" min="0" v-model.number="projectModal.budgetHours" placeholder="z.B. 600">
           </div>
         </div>
         <div class="form-row">
@@ -1179,12 +1196,12 @@ createApp({
 
       // Modals
       showAllocModal: false,
-      allocModal: {id:null, memberId:null, projectName:'', focus:'Konstruktion', startKW:23, endKW:26, year:new Date().getFullYear(), hoursPerWeek:8, pct:25, inputMode:'pct'},
+      allocModal: {id:null, memberId:null, projectName:'', focus:'Konstruktion', startKW:23, endKW:26, year:new Date().getFullYear(), hoursPerWeek:8, pct:25, inputMode:'pct', totalHours:''},
       showAbsenceModal: false,
       absenceModal: {id:null, memberId:null, startKW:23, endKW:26, year:new Date().getFullYear(), pct:100},
       returnToAllocModal: false,
       showProjectModal: false,
-      projectModal: {id:null, projectId:'', name:'', focus:'Konstruktion', theme:'', status:'Aktiv', priority:'Mittel', startDate:'', endDate:'', scope:'', pmEngineering:'', pmGlobal:'', departments:[]},
+      projectModal: {id:null, projectId:'', name:'', focus:'Konstruktion', theme:'', status:'Aktiv', priority:'Mittel', startDate:'', endDate:'', budgetHours:'', scope:'', pmEngineering:'', pmGlobal:'', departments:[]},
       showMemberModal: false,
       memberModal: {id:null, name:'', hoursPerWeek:35, grundlastPct:15, color:'#6366F1', department:''},
 
@@ -1306,6 +1323,12 @@ createApp({
       const m = this.members.find(x => x.id === this.allocModal.memberId);
       if (!m || !m.hoursPerWeek) return 0;
       return Math.round((this.allocModal.hoursPerWeek || 0) / m.hoursPerWeek * 100);
+    },
+    allocModalTotalHoursCalc() {
+      const weeks = Math.max(0, this.allocModal.endKW - this.allocModal.startKW + 1);
+      if (!weeks) return 0;
+      const hPerWeek = this.allocModal.inputMode === 'pct' ? this.allocModalHours : this.allocModal.hoursPerWeek;
+      return Math.round(weeks * hPerWeek * 10) / 10;
     },
     projectAllocGroups() {
       const order = [];
@@ -1620,12 +1643,12 @@ createApp({
         startKW: this.currentKW,
         endKW:   Math.min(52, this.currentKW + 3),
         year: new Date().getFullYear(),
-        hoursPerWeek: 8, pct: 25, inputMode: 'pct',
+        hoursPerWeek: 8, pct: 25, inputMode: 'pct', totalHours: '',
       };
       this.showAllocModal = true;
     },
     editAlloc(a) {
-      this.allocModal = {id:a.id, memberId:a.memberId, projectName:a.projectName, focus:a.focus||'Konstruktion', startKW:a.startKW, endKW:a.endKW, year:a.year, hoursPerWeek:a.hoursPerWeek, pct:25, inputMode:'pct'};
+      this.allocModal = {id:a.id, memberId:a.memberId, projectName:a.projectName, focus:a.focus||'Konstruktion', startKW:a.startKW, endKW:a.endKW, year:a.year, hoursPerWeek:a.hoursPerWeek, pct:25, inputMode:'pct', totalHours:''};
       this.showAllocModal = true;
     },
     getMemberName(memberId) {
@@ -1657,6 +1680,30 @@ createApp({
       const heightPct = Math.min(h / 70 * 85, 98);
       return {height: heightPct + '%', background: getProjectColor(projectName)};
     },
+    getProjectBudgetColIdx(projectName) {
+      const p = this.projects.find(x => x.name === projectName);
+      if (!p || !p.budgetHours) return null;
+      const budget = Number(p.budgetHours);
+      if (!budget) return null;
+      let accumulated = 0;
+      for (const col of this.ganttCols) {
+        accumulated += this.getProjectWeekHours(projectName, col.kw, col.year);
+        if (accumulated >= budget) return col.idx;
+      }
+      return null;
+    },
+    getBudgetLineStyle(projectName) {
+      const colIdx = this.getProjectBudgetColIdx(projectName);
+      return colIdx !== null ? {left: ((colIdx + 1) * this.colW - 1) + 'px'} : {};
+    },
+    getProjectBudgetLabel(projectName) {
+      const p = this.projects.find(x => x.name === projectName);
+      if (!p || !p.budgetHours) return '';
+      const colIdx = this.getProjectBudgetColIdx(projectName);
+      if (colIdx === null) return `Budget ${p.budgetHours}h (im Zeitraum nicht erreicht)`;
+      const col = this.ganttCols[colIdx];
+      return `Budget ${p.budgetHours}h erschöpft: KW${col.kw}/${col.year}`;
+    },
     openNewAllocModalForProject(projectName) {
       const proj = this.projects.find(p => p.name === projectName);
       const firstMember = this.members[0];
@@ -1668,13 +1715,21 @@ createApp({
         startKW: this.currentKW,
         endKW: Math.min(52, this.currentKW + 3),
         year: new Date().getFullYear(),
-        hoursPerWeek: 8,
+        hoursPerWeek: 8, pct: 25, inputMode: 'pct', totalHours: '',
       };
       this.showAllocModal = true;
     },
     onAllocProjectChange() {
       const proj = this.projects.find(p => p.name === this.allocModal.projectName);
       if (proj && proj.focus) this.allocModal.focus = proj.focus;
+    },
+    applyTotalHours() {
+      const total = Number(this.allocModal.totalHours);
+      if (!total) return;
+      const hPerWeek = this.allocModal.inputMode === 'pct' ? this.allocModalHours : this.allocModal.hoursPerWeek;
+      if (!hPerWeek) return;
+      const weeks = Math.ceil(total / hPerWeek);
+      this.allocModal.endKW = Math.min(52, this.allocModal.startKW + weeks - 1);
     },
     saveAlloc() {
       if (this.allocModal.inputMode === 'pct') {
@@ -1687,7 +1742,7 @@ createApp({
       if (this.allocModal.startKW > this.allocModal.endKW) {
         this.notify('Von-KW muss ≤ Bis-KW sein', 'error'); return;
       }
-      const {inputMode, pct, ...saveData} = this.allocModal;
+      const {inputMode, pct, totalHours, ...saveData} = this.allocModal;
       if (saveData.id) {
         const idx = this.allocations.findIndex(a => a.id === saveData.id);
         if (idx >= 0) Object.assign(this.allocations[idx], saveData);
@@ -1754,13 +1809,13 @@ createApp({
     },
     openProjectModal(proj) {
       this.returnToAllocModal = false;
-      this.projectModal = proj ? {...proj, departments: proj.departments || []} : {id:null, projectId:'', name:'', focus:'Konstruktion', theme:'', status:'Aktiv', priority:'Mittel', startDate:'', endDate:'', scope:'', pmEngineering:'', pmGlobal:'', departments:[]};
+      this.projectModal = proj ? {...proj, departments: proj.departments || [], budgetHours: proj.budgetHours || ''} : {id:null, projectId:'', name:'', focus:'Konstruktion', theme:'', status:'Aktiv', priority:'Mittel', startDate:'', endDate:'', budgetHours:'', scope:'', pmEngineering:'', pmGlobal:'', departments:[]};
       this.showProjectModal = true;
     },
     openNewProjectFromAlloc() {
       this.returnToAllocModal = true;
       this.showAllocModal = false;
-      this.projectModal = {id:null, projectId:'', name:'', focus:'Konstruktion', theme:'', status:'Aktiv', priority:'Mittel', startDate:'', endDate:'', scope:'', pmEngineering:'', pmGlobal:'', departments:[]};
+      this.projectModal = {id:null, projectId:'', name:'', focus:'Konstruktion', theme:'', status:'Aktiv', priority:'Mittel', startDate:'', endDate:'', budgetHours:'', scope:'', pmEngineering:'', pmGlobal:'', departments:[]};
       this.showProjectModal = true;
     },
     saveProject() {
@@ -2335,6 +2390,10 @@ createApp({
   },
 
   watch: {
+    'allocModal.totalHours'() { this.applyTotalHours(); },
+    'allocModal.startKW'() { if (this.allocModal.totalHours) this.applyTotalHours(); },
+    'allocModal.hoursPerWeek'() { if (this.allocModal.totalHours) this.applyTotalHours(); },
+    'allocModal.pct'() { if (this.allocModal.totalHours) this.applyTotalHours(); },
     currentUserName(v) { localStorage.setItem('kapaUserName', v); },
     globalDepts(v) { localStorage.setItem('kapaGlobalDepts', JSON.stringify(v)); if (this.view === 'dashboard') this.renderCharts(); },
     view(v) {
