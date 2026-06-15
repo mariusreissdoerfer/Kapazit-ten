@@ -275,15 +275,15 @@ select.form-control{cursor:pointer}
     <div class="topbar">
       <div class="topbar-title">{{viewTitle}}</div>
       <div v-if="fileName"
-        :style="{display:'flex',alignItems:'center',gap:'10px',padding:'5px 12px',borderRadius:'7px',fontSize:'12px',fontWeight:500,maxWidth:'480px',overflow:'hidden',
-          background: openedBy && openedBy.name!==(currentUserName||'Unbekannt') ? '#FEF2F2' : '#F0FDF4',
-          border:     '1px solid '+(openedBy && openedBy.name!==(currentUserName||'Unbekannt') ? '#FECACA' : '#A7F3D0'),
-          color:      openedBy && openedBy.name!==(currentUserName||'Unbekannt') ? '#991B1B' : '#065F46'}">
-        <svg fill="none" :stroke="openedBy && openedBy.name!==(currentUserName||'Unbekannt')?'#EF4444':'#10B981'" stroke-width="2" viewBox="0 0 24 24" style="width:14px;height:14px;flex-shrink:0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        :style="{display:'flex',alignItems:'center',gap:'10px',padding:'5px 12px',borderRadius:'7px',fontSize:'12px',fontWeight:500,maxWidth:'560px',overflow:'hidden',
+          background: otherEditors.length ? '#FFF7ED' : '#F0FDF4',
+          border:     '1px solid '+(otherEditors.length ? '#FED7AA' : '#A7F3D0'),
+          color:      otherEditors.length ? '#92400E' : '#065F46'}">
+        <svg fill="none" :stroke="otherEditors.length?'#F97316':'#10B981'" stroke-width="2" viewBox="0 0 24 24" style="width:14px;height:14px;flex-shrink:0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
         <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{fileName}}</span>
-        <span v-if="openedBy" style="border-left:1px solid rgba(0,0,0,.1);padding-left:10px;display:flex;align-items:center;gap:5px;white-space:nowrap;flex-shrink:0">
-          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          {{openedBy.name}}
+        <span v-if="otherEditors.length" style="border-left:1px solid rgba(0,0,0,.1);padding-left:10px;display:flex;align-items:center;gap:5px;white-space:nowrap;flex-shrink:0">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span v-for="(e,i) in otherEditors" :key="e.name">{{e.name}}<span v-if="i < otherEditors.length-1">, </span></span>
         </span>
         <span v-if="autoSaveActive" style="border-left:1px solid rgba(0,0,0,.1);padding-left:10px;display:flex;align-items:center;gap:4px;white-space:nowrap;flex-shrink:0;opacity:.8" title="Automatisch speichern aktiv">
           <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:12px;height:12px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
@@ -1214,7 +1214,7 @@ createApp({
       lastFileHandle: null,
       lastFileName: null,
       currentUserName: localStorage.getItem('kapaUserName') || '',
-      openedBy: null,
+      editors: [],
       autoSaveEnabled: localStorage.getItem('kapaAutoSave') !== 'false',
       autoSaveTimer: null,
       syncStatus: 'idle',
@@ -1341,6 +1341,10 @@ createApp({
       if (!this.autoSaveEnabled) return false;
       if (!this.fileHandle) return false;
       return true;
+    },
+    otherEditors() {
+      const myName = this.currentUserName || 'Unbekannt';
+      return this.editors.filter(e => e.name !== myName);
     },
     syncLastTimeLabel() {
       if (!this.syncLastTime) return '';
@@ -1969,16 +1973,15 @@ createApp({
           await this._saveHandleToIDB(handle);
           const file = await handle.getFile();
           const data = JSON.parse(await file.text());
-          if (data.openedBy && data.openedBy.name) {
-            const ageSec = (Date.now() - new Date(data.openedBy.since).getTime()) / 1000;
-            if (ageSec < 8 * 3600) {
-              this.notify('"' + data.openedBy.name + '" bearbeitet diese Datei – Synchronisation läuft automatisch.', 'info');
-            }
+          const activeEditors = (data.editors || (data.openedBy ? [{name: data.openedBy.name, lastSeen: data.openedBy.since}] : []))
+            .filter(e => (Date.now() - new Date(e.lastSeen).getTime()) < 2 * 60 * 1000);
+          if (activeEditors.length) {
+            this.notify(activeEditors.map(e => e.name).join(', ') + ' bearbeitet die Datei – Sync läuft automatisch.', 'info');
           }
           this.fileHandle = handle;
           this.fileName = handle.name;
           this.loadFromData(data);
-          this.openedBy = {name: this.currentUserName || 'Unbekannt', since: new Date().toISOString()};
+          this._addSelfToEditors();
           await this._writeSilent();
           this._startSync();
           this.notify('Datei geladen: ' + handle.name, 'success');
@@ -2015,10 +2018,10 @@ createApp({
       URL.revokeObjectURL(a.href);
     },
     buildExportData() {
-      return {version:'1.5', exportedAt: new Date().toISOString().slice(0,10), openedBy:this.openedBy, departmentList:this.departmentList, members:this.members, projects:this.projects, allocations:this.allocations, absences:this.absences};
+      return {version:'1.5', exportedAt: new Date().toISOString().slice(0,10), editors:this.editors, departmentList:this.departmentList, members:this.members, projects:this.projects, allocations:this.allocations, absences:this.absences};
     },
     loadFromData(data) {
-      this.openedBy = data.openedBy || null;
+      this.editors = data.editors || (data.openedBy ? [{name: data.openedBy.name, lastSeen: data.openedBy.since}] : []);
       if (data.departmentList) {
         this.departmentList = data.departmentList;
       } else if (data.members) {
@@ -2058,7 +2061,7 @@ createApp({
     _scheduleAutoSave() {
       if (!this.autoSaveActive) return;
       clearTimeout(this.autoSaveTimer);
-      this.autoSaveTimer = setTimeout(() => { this._writeSilent(); }, 4000);
+      this.autoSaveTimer = setTimeout(() => { this._autoSync(); }, 4000);
     },
     _loadLocalStorage() {
       try {
@@ -2312,11 +2315,19 @@ createApp({
     async disconnectFile() {
       if (!this.fileHandle) return;
       this._stopSync();
-      this.openedBy = null;
+      this._removeSelfFromEditors();
       await this._writeSilent();
       this.fileHandle = null;
       this.fileName = null;
       this.notify('Verbindung getrennt', 'info');
+    },
+    _addSelfToEditors() {
+      const myName = this.currentUserName || 'Unbekannt';
+      this.editors = this.editors.filter(e => e.name !== myName).concat([{name: myName, lastSeen: new Date().toISOString()}]);
+    },
+    _removeSelfFromEditors() {
+      const myName = this.currentUserName || 'Unbekannt';
+      this.editors = this.editors.filter(e => e.name !== myName);
     },
     async _writeSilent() {
       if (!this.fileHandle) return;
@@ -2362,6 +2373,11 @@ createApp({
           this.departmentList = merged.departmentList;
           this.projects.forEach(p => getProjectColor(p.name));
         }
+        // Editors aus Remote übernehmen (andere Nutzer), eigenen Eintrag aktualisieren
+        const myName = this.currentUserName || 'Unbekannt';
+        const now = Date.now();
+        const remoteEditors = (remote.editors || []).filter(e => e.name !== myName && (now - new Date(e.lastSeen).getTime()) < 2 * 60 * 1000);
+        this.editors = [...remoteEditors, {name: myName, lastSeen: new Date().toISOString()}];
         await this._writeSilent();
         this.syncLastTime = new Date();
         this.syncStatus = 'ok';
@@ -2598,8 +2614,8 @@ createApp({
       } catch(e) {}
     });
     const releaseLock = () => {
-      if (!this.fileHandle || !this.openedBy) return;
-      this.openedBy = null;
+      if (!this.fileHandle) return;
+      this._removeSelfFromEditors();
       this._writeSilent();
     };
     window.addEventListener('pagehide', releaseLock);
