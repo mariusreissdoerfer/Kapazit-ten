@@ -289,6 +289,10 @@ select.form-control{cursor:pointer}
           <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:12px;height:12px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
           Auto
         </span>
+        <span v-if="syncLastTime" style="border-left:1px solid rgba(0,0,0,.1);padding-left:10px;display:flex;align-items:center;gap:4px;white-space:nowrap;flex-shrink:0" :style="{opacity: syncStatus==='error'?1:.8,color:syncStatus==='error'?'#EF4444':'inherit'}" :title="'Letzter Sync: ' + syncLastTimeLabel">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:12px;height:12px"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          {{syncLastTimeLabel}}
+        </span>
       </div>
       <div v-else style="display:flex;align-items:center;gap:7px;padding:5px 10px;background:#FEF2F2;border:1px solid #FECACA;border-radius:7px;font-size:12px;color:#991B1B;font-weight:500">
         <svg fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24" style="width:14px;height:14px;flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -1213,6 +1217,8 @@ createApp({
       openedBy: null,
       autoSaveEnabled: localStorage.getItem('kapaAutoSave') !== 'false',
       autoSaveTimer: null,
+      syncStatus: 'idle',
+      syncLastTime: null,
 
       // Drag state
       dragState: null, // {item, type:'move'|'left'|'right', startX, origStartKW, origEndKW}
@@ -1334,9 +1340,14 @@ createApp({
     autoSaveActive() {
       if (!this.autoSaveEnabled) return false;
       if (!this.fileHandle) return false;
-      const myName = this.currentUserName || 'Unbekannt';
-      if (this.openedBy && this.openedBy.name !== myName) return false;
       return true;
+    },
+    syncLastTimeLabel() {
+      if (!this.syncLastTime) return '';
+      const diff = Math.round((Date.now() - this.syncLastTime.getTime()) / 1000);
+      if (diff < 10) return 'gerade';
+      if (diff < 60) return 'vor ' + diff + 's';
+      return 'vor ' + Math.round(diff / 60) + ' min';
     },
     visibleMembers() {
       if (!this.globalDepts.length) return this.members;
@@ -1630,6 +1641,7 @@ createApp({
     _onMouseUp() {
       if (this.dragState) {
         const memberId = this.dragState.item.memberId;
+        this.markDirty(String(this.dragState.item.id));
         this.autoSave();
         this.dragState = null;
         this.reorderFlashId = memberId;
@@ -1794,15 +1806,18 @@ createApp({
       const {inputMode, pct, totalHours, derived, ...saveData} = this.allocModal;
       if (saveData.id) {
         const idx = this.allocations.findIndex(a => a.id === saveData.id);
-        if (idx >= 0) Object.assign(this.allocations[idx], saveData);
+        if (idx >= 0) { Object.assign(this.allocations[idx], saveData); this.markDirty(String(saveData.id)); }
       } else {
-        this.allocations.push({...saveData, id: 'a' + Date.now()});
+        const newAllocId = 'a' + Date.now();
+        this.allocations.push({...saveData, id: newAllocId});
+        this.markDirty(newAllocId);
       }
       this.showAllocModal = false;
       this.autoSave();
       this.notify('Zuweisung gespeichert', 'success');
     },
     deleteAlloc(id) {
+      this.markDirty(String(id));
       const i = this.allocations.findIndex(a => a.id === id);
       if (i >= 0) this.allocations.splice(i, 1);
       this.autoSave();
@@ -1824,15 +1839,18 @@ createApp({
       }
       if (this.absenceModal.id) {
         const idx = this.absences.findIndex(a => a.id === this.absenceModal.id);
-        if (idx >= 0) Object.assign(this.absences[idx], this.absenceModal);
+        if (idx >= 0) { Object.assign(this.absences[idx], this.absenceModal); this.markDirty(String(this.absenceModal.id)); }
       } else {
-        this.absences.push({...this.absenceModal, id: 'ab' + Date.now()});
+        const newAbsId = 'ab' + Date.now();
+        this.absences.push({...this.absenceModal, id: newAbsId});
+        this.markDirty(newAbsId);
       }
       this.showAbsenceModal = false;
       this.autoSave();
       this.notify('Abwesenheit gespeichert', 'success');
     },
     deleteAbsence(id) {
+      this.markDirty(String(id));
       const i = this.absences.findIndex(a => a.id === id);
       if (i >= 0) this.absences.splice(i, 1);
       this.autoSave();
@@ -1871,11 +1889,12 @@ createApp({
       if (!this.projectModal.name) { this.notify('Bitte Namen eingeben', 'error'); return; }
       if (this.projectModal.id) {
         const i = this.projects.findIndex(p => p.id === this.projectModal.id);
-        if (i >= 0) Object.assign(this.projects[i], this.projectModal);
+        if (i >= 0) { Object.assign(this.projects[i], this.projectModal); this.markDirty(String(this.projectModal.id)); }
       } else {
-        const newId = Math.max(0, ...this.projects.map(p => p.id)) + 1;
-        this.projects.push({...this.projectModal, id: newId});
+        const newProjId = Math.max(0, ...this.projects.map(p => p.id)) + 1;
+        this.projects.push({...this.projectModal, id: newProjId});
         getProjectColor(this.projectModal.name);
+        this.markDirty(String(newProjId));
       }
       this.showProjectModal = false;
       this.autoSave();
@@ -1891,6 +1910,8 @@ createApp({
       const proj = this.projects.find(p => p.id === id);
       if (!proj) return;
       const name = proj.name;
+      this.markDirty(String(id));
+      this.allocations.filter(a => a.projectName === name).forEach(a => this.markDirty(String(a.id)));
       this.projects.splice(this.projects.findIndex(p => p.id === id), 1);
       const before = this.allocations.length;
       this.allocations = this.allocations.filter(a => a.projectName !== name);
@@ -1912,9 +1933,11 @@ createApp({
       const data = {name:this.memberModal.name, hoursPerWeek:this.memberModal.hoursPerWeek, grundlastFactor:this.memberModal.grundlastPct/100, color:this.memberModal.color, location:'DE', department:this.memberModal.department||''};
       if (this.memberModal.id) {
         const i = this.members.findIndex(m => m.id === this.memberModal.id);
-        if (i >= 0) Object.assign(this.members[i], data);
+        if (i >= 0) { Object.assign(this.members[i], data); this.markDirty(String(this.memberModal.id)); }
       } else {
-        this.members.push({...data, id: Math.max(0, ...this.members.map(m => m.id)) + 1});
+        const newMemberId = Math.max(0, ...this.members.map(m => m.id)) + 1;
+        this.members.push({...data, id: newMemberId});
+        this.markDirty(String(newMemberId));
       }
       this.showMemberModal = false;
       this.autoSave();
@@ -1949,9 +1972,7 @@ createApp({
           if (data.openedBy && data.openedBy.name) {
             const ageSec = (Date.now() - new Date(data.openedBy.since).getTime()) / 1000;
             if (ageSec < 8 * 3600) {
-              const since = this.formatLockTime(data.openedBy.since);
-              const go = confirm('Diese Datei wird gerade von "' + data.openedBy.name + '" bearbeitet (seit ' + since + ').\n\nTrotzdem öffnen? Änderungen könnten sich gegenseitig überschreiben.');
-              if (!go) return;
+              this.notify('"' + data.openedBy.name + '" bearbeitet diese Datei – Synchronisation läuft automatisch.', 'info');
             }
           }
           this.fileHandle = handle;
@@ -1959,6 +1980,7 @@ createApp({
           this.loadFromData(data);
           this.openedBy = {name: this.currentUserName || 'Unbekannt', since: new Date().toISOString()};
           await this._writeSilent();
+          this._startSync();
           this.notify('Datei geladen: ' + handle.name, 'success');
         } catch(e) { if (e.name !== 'AbortError') this.notify('Öffnen fehlgeschlagen', 'error'); }
       } else {
@@ -2289,6 +2311,7 @@ createApp({
     },
     async disconnectFile() {
       if (!this.fileHandle) return;
+      this._stopSync();
       this.openedBy = null;
       await this._writeSilent();
       this.fileHandle = null;
@@ -2301,7 +2324,93 @@ createApp({
         const w = await this.fileHandle.createWritable();
         await w.write(JSON.stringify(this.buildExportData(), null, 2));
         await w.close();
+        this._setSyncBase();
+        if (this._dirtyIds) this._dirtyIds.clear();
       } catch(e) {}
+    },
+    markDirty(...ids) {
+      if (this._dirtyIds) ids.forEach(id => this._dirtyIds.add(String(id)));
+    },
+    _setSyncBase() {
+      this._syncBase = JSON.parse(JSON.stringify({
+        projects: this.projects, members: this.members,
+        allocations: this.allocations, absences: this.absences,
+        departmentList: this.departmentList,
+      }));
+    },
+    _startSync() {
+      this._stopSync();
+      this._setSyncBase();
+      if (this._dirtyIds) this._dirtyIds.clear();
+      this._syncInterval = setInterval(() => this._autoSync(), 30000);
+    },
+    _stopSync() {
+      if (this._syncInterval) { clearInterval(this._syncInterval); this._syncInterval = null; }
+    },
+    async _autoSync() {
+      if (!this.fileHandle || this._syncing) return;
+      this._syncing = true;
+      try {
+        const file = await this.fileHandle.getFile();
+        const remote = JSON.parse(await file.text());
+        const merged = this._mergeData(remote);
+        if (merged.anyChanged) {
+          this.projects = merged.projects;
+          this.members = merged.members;
+          this.allocations = merged.allocations;
+          this.absences = merged.absences;
+          this.departmentList = merged.departmentList;
+          this.projects.forEach(p => getProjectColor(p.name));
+        }
+        await this._writeSilent();
+        this.syncLastTime = new Date();
+        this.syncStatus = 'ok';
+      } catch(e) {
+        this.syncStatus = 'error';
+      } finally {
+        this._syncing = false;
+      }
+    },
+    _mergeData(remote) {
+      if (!this._syncBase) return {
+        projects: remote.projects || this.projects,
+        members: remote.members || this.members,
+        allocations: remote.allocations || this.allocations,
+        absences: remote.absences || this.absences,
+        departmentList: remote.departmentList || this.departmentList,
+        anyChanged: false,
+      };
+      let anyChanged = false;
+      const mergeCol = (baseArr, remoteArr, localArr) => {
+        const toMap = arr => new Map((arr||[]).map(x => [String(x.id), x]));
+        const bMap = toMap(baseArr), rMap = toMap(remoteArr), lMap = toMap(localArr);
+        const allIds = new Set([...bMap.keys(), ...rMap.keys(), ...lMap.keys()]);
+        const result = [];
+        for (const id of allIds) {
+          const inB = bMap.has(id), inR = rMap.has(id), inL = lMap.has(id);
+          const dirty = this._dirtyIds && this._dirtyIds.has(id);
+          if (dirty && inL) {
+            result.push(lMap.get(id)); // eigene Änderung gewinnt
+          } else if (!inR && inB) {
+            anyChanged = true; // remote gelöscht → wir übernehmen
+          } else if (inR) {
+            if (!inL || JSON.stringify(rMap.get(id)) !== JSON.stringify(lMap.get(id))) anyChanged = true;
+            result.push(rMap.get(id));
+          } else if (inL && !inB) {
+            result.push(lMap.get(id)); // lokale Ergänzung noch nicht auf remote
+          }
+        }
+        return result;
+      };
+      const projects     = mergeCol(this._syncBase.projects,     remote.projects||[],     this.projects);
+      const members      = mergeCol(this._syncBase.members,      remote.members||[],      this.members);
+      const allocations  = mergeCol(this._syncBase.allocations,  remote.allocations||[],  this.allocations);
+      const absences     = mergeCol(this._syncBase.absences||[], remote.absences||[],     this.absences||[]);
+      const remoteDept = JSON.stringify(remote.departmentList||[]);
+      const baseDept   = JSON.stringify(this._syncBase.departmentList||[]);
+      const departmentList = remoteDept !== baseDept ? (remote.departmentList||this.departmentList) : this.departmentList;
+      if (remoteDept !== baseDept) anyChanged = true;
+      return { projects, members, allocations, absences, departmentList, anyChanged };
     },
     formatLockTime(iso) {
       if (!iso) return '';
@@ -2463,6 +2572,10 @@ createApp({
   },
 
   mounted() {
+    this._dirtyIds = new Set();
+    this._syncBase = null;
+    this._syncing = false;
+    this._syncInterval = null;
     document.addEventListener('click', () => { this.globalDeptDropdownOpen = false; });
     this._loadHandleFromIDB().then(async handle => {
       if (!handle) return;
@@ -2475,6 +2588,7 @@ createApp({
           this.fileName = handle.name;
           const file = await handle.getFile();
           this.loadFromData(JSON.parse(await file.text()));
+          this._startSync();
           this.notify('Datei wiederhergestellt: ' + handle.name, 'success');
         }
       } catch(e) {}
@@ -2486,7 +2600,7 @@ createApp({
     };
     window.addEventListener('pagehide', releaseLock);
     document.addEventListener('keydown', (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); if (!this.openedBy || this.openedBy.name === (this.currentUserName || 'Unbekannt')) this.saveFile(); }
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); this.saveFile(); }
       if (e.key === 'Escape') { this.showAllocModal=false; this.showProjectModal=false; this.showMemberModal=false; this.showAbsenceModal=false; this.globalDeptDropdownOpen=false; }
     });
     document.addEventListener('mousemove', this._onMouseMove.bind(this));
