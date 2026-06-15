@@ -457,6 +457,7 @@ select.form-control{cursor:pointer}
                     <div class="gantt-bar" v-for="alloc in mgrp.allocs" :key="alloc.id"
                       :class="{dragging: dragState && dragState.item===alloc}"
                       :style="getBarStyleLaned(alloc, mgrp.laneOf[alloc.id]||0, mgrp.laneCount)"
+                      :title="`${getMemberName(mgrp.memberId)} · ${formatH(alloc.hoursPerWeek)}h/Wo · ${allocPct(alloc)}% · KW${alloc.startKW}–${alloc.endKW}`"
                       @mousedown.prevent="startDrag($event, alloc, 'move')"
                       @dblclick.prevent.stop="editAlloc(alloc)">
                       <div class="bar-handle bar-handle-left" @mousedown.prevent.stop="startDrag($event, alloc, 'left')"></div>
@@ -530,6 +531,7 @@ select.form-control{cursor:pointer}
                       <div class="gantt-bar gantt-bar-absence" v-for="abs in grp.allocs" :key="abs.id"
                         :class="{dragging: dragState && dragState.item===abs}"
                         :style="getAbsBarStyleLaned(abs, grp.laneOf[abs.id]||0)"
+                        :title="`${abs.pct}% Abwesend · KW${abs.startKW}–${abs.endKW}`"
                         @mousedown.prevent="startDrag($event, abs, 'move')"
                         @dblclick.prevent.stop="editAbsence(abs)">
                         <div class="bar-handle bar-handle-left" @mousedown.prevent.stop="startDrag($event, abs, 'left')"></div>
@@ -541,6 +543,7 @@ select.form-control{cursor:pointer}
                       <div class="gantt-bar" v-for="alloc in grp.allocs" :key="alloc.id"
                         :class="{dragging: dragState && dragState.item===alloc}"
                         :style="getBarStyleLaned(alloc, grp.laneOf[alloc.id]||0, grp.laneCount)"
+                        :title="`${alloc.projectName} · ${formatH(alloc.hoursPerWeek)}h/Wo · ${allocPct(alloc)}% · KW${alloc.startKW}–${alloc.endKW}`"
                         @mousedown.prevent="startDrag($event, alloc, 'move')"
                         @dblclick.prevent.stop="editAlloc(alloc)">
                         <div class="bar-handle bar-handle-left" @mousedown.prevent.stop="startDrag($event, alloc, 'left')"></div>
