@@ -194,6 +194,7 @@ select.form-control{cursor:pointer}
 .toast.success{background:#ECFDF5;color:#065F46;border:1px solid #A7F3D0}
 .toast.error{background:#FEF2F2;color:#991B1B;border:1px solid #FECACA}
 .toast.info{background:#EFF6FF;color:#1E40AF;border:1px solid #BFDBFE}
+.toast.warning{background:#FFFBEB;color:#92400E;border:1px solid #FCD34D}
 
 ::-webkit-scrollbar{width:6px;height:6px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -2061,7 +2062,8 @@ createApp({
     _scheduleAutoSave() {
       if (!this.autoSaveActive) return;
       clearTimeout(this.autoSaveTimer);
-      this.autoSaveTimer = setTimeout(() => { this._autoSync(); }, 4000);
+      const jitter = Math.floor(Math.random() * 2000);
+      this.autoSaveTimer = setTimeout(() => { this._autoSync(); }, 4000 + jitter);
     },
     _loadLocalStorage() {
       try {
@@ -2296,19 +2298,17 @@ createApp({
         if (perm !== 'granted') { this.notify('Zugriff verweigert', 'error'); return; }
         const file = await this.lastFileHandle.getFile();
         const data = JSON.parse(await file.text());
-        if (data.openedBy && data.openedBy.name) {
-          const ageSec = (Date.now() - new Date(data.openedBy.since).getTime()) / 1000;
-          if (ageSec < 8 * 3600) {
-            const since = this.formatLockTime(data.openedBy.since);
-            const go = confirm('Diese Datei wird gerade von "' + data.openedBy.name + '" bearbeitet (seit ' + since + ').\n\nTrotzdem öffnen?');
-            if (!go) return;
-          }
+        const activeEditors = (data.editors || (data.openedBy ? [{name: data.openedBy.name, lastSeen: data.openedBy.since}] : []))
+          .filter(e => e.name !== (this.currentUserName || 'Unbekannt') && (Date.now() - new Date(e.lastSeen).getTime()) < 2 * 60 * 1000);
+        if (activeEditors.length) {
+          this.notify(activeEditors.map(e => e.name).join(', ') + ' bearbeitet die Datei – Sync läuft automatisch.', 'info');
         }
         this.fileHandle = this.lastFileHandle;
         this.fileName = this.lastFileName;
         this.loadFromData(data);
-        this.openedBy = {name: this.currentUserName || 'Unbekannt', since: new Date().toISOString()};
+        this._addSelfToEditors();
         await this._writeSilent();
+        this._startSync();
         this.notify('Datei geladen: ' + this.fileName, 'success');
       } catch(e) { this.notify('Datei konnte nicht geöffnet werden', 'error'); }
     },
@@ -2364,6 +2364,7 @@ createApp({
       try {
         const file = await this.fileHandle.getFile();
         const remote = JSON.parse(await file.text());
+        const hadDirty = this._dirtyIds && this._dirtyIds.size > 0;
         const merged = this._mergeData(remote);
         if (merged.anyChanged) {
           this.projects = merged.projects;
@@ -2382,7 +2383,9 @@ createApp({
         this.syncLastTime = new Date();
         this.syncStatus = 'ok';
         if (merged.conflicts > 0)
-          this.notify(`Konflikt: ${merged.conflicts} Eintrag${merged.conflicts > 1 ? 'e wurden' : ' wurde'} von beiden Seiten geändert – deine Version wurde behalten.`, 'error');
+          this.notify(`Konflikt: ${merged.conflicts} Eintrag${merged.conflicts > 1 ? 'e wurden' : ' wurde'} von beiden Seiten geändert – deine Version behalten.`, 'error', 6000);
+        else if (hadDirty && merged.anyChanged)
+          this.notify('Andere haben Änderungen vorgenommen während du bearbeitet hast – zusammengeführt.', 'warning', 5000);
       } catch(e) {
         this.syncStatus = 'error';
       } finally {
@@ -2397,6 +2400,7 @@ createApp({
         absences: remote.absences || this.absences,
         departmentList: remote.departmentList || this.departmentList,
         anyChanged: false,
+        conflicts: 0,
       };
       let anyChanged = false;
       let conflicts = 0;
