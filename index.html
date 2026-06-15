@@ -2365,6 +2365,8 @@ createApp({
         await this._writeSilent();
         this.syncLastTime = new Date();
         this.syncStatus = 'ok';
+        if (merged.conflicts > 0)
+          this.notify(`Konflikt: ${merged.conflicts} Eintrag${merged.conflicts > 1 ? 'e wurden' : ' wurde'} von beiden Seiten geändert – deine Version wurde behalten.`, 'error');
       } catch(e) {
         this.syncStatus = 'error';
       } finally {
@@ -2381,6 +2383,7 @@ createApp({
         anyChanged: false,
       };
       let anyChanged = false;
+      let conflicts = 0;
       const mergeCol = (baseArr, remoteArr, localArr) => {
         const toMap = arr => new Map((arr||[]).map(x => [String(x.id), x]));
         const bMap = toMap(baseArr), rMap = toMap(remoteArr), lMap = toMap(localArr);
@@ -2390,6 +2393,7 @@ createApp({
           const inB = bMap.has(id), inR = rMap.has(id), inL = lMap.has(id);
           const dirty = this._dirtyIds && this._dirtyIds.has(id);
           if (dirty && inL) {
+            if (inR && inB && JSON.stringify(rMap.get(id)) !== JSON.stringify(bMap.get(id))) conflicts++;
             result.push(lMap.get(id)); // eigene Änderung gewinnt
           } else if (!inR && inB) {
             anyChanged = true; // remote gelöscht → wir übernehmen
@@ -2410,7 +2414,7 @@ createApp({
       const baseDept   = JSON.stringify(this._syncBase.departmentList||[]);
       const departmentList = remoteDept !== baseDept ? (remote.departmentList||this.departmentList) : this.departmentList;
       if (remoteDept !== baseDept) anyChanged = true;
-      return { projects, members, allocations, absences, departmentList, anyChanged };
+      return { projects, members, allocations, absences, departmentList, anyChanged, conflicts };
     },
     formatLockTime(iso) {
       if (!iso) return '';
