@@ -2407,7 +2407,7 @@ createApp({
       if (this._syncInterval) { clearInterval(this._syncInterval); this._syncInterval = null; }
     },
     async _autoSync() {
-      if (!this.fileHandle || this._syncing) return;
+      if (!this.fileHandle || this._syncing || this.dragState) return;
       this._syncing = true;
       try {
         const file = await this.fileHandle.getFile();
