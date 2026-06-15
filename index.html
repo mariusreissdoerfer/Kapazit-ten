@@ -2464,6 +2464,8 @@ createApp({
             if (inR && inB && JSON.stringify(rMap.get(id)) !== JSON.stringify(bMap.get(id)))
               conflictItems.push({ collection: collName, id, local: lMap.get(id), remote: rMap.get(id) });
             result.push(lMap.get(id)); // eigene Änderung gewinnt vorläufig
+          } else if (dirty && !inL) {
+            // lokal gelöscht → Löschung beibehalten, Remote nicht wiederherstellen
           } else if (!inR && inB) {
             anyChanged = true;
           } else if (inR) {
