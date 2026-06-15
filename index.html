@@ -1110,6 +1110,53 @@ select.form-control{cursor:pointer}
     </div>
   </div>
 
+  <!-- Konflikt-Modal -->
+  <div v-if="conflictModal.show" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px">
+    <div style="background:white;border-radius:12px;padding:24px;max-width:640px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <svg fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24" style="width:20px;height:20px;flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <h3 style="margin:0;font-size:16px;font-weight:700;color:#111">Bearbeitungskonflikt</h3>
+      </div>
+      <p style="margin:0 0 18px;font-size:13px;color:#6B7280">{{conflictModal.items.length}} Eintrag{{conflictModal.items.length>1?'e wurden':'  wurde'}} gleichzeitig von dir und einem anderen Nutzer geändert. Wähle für jeden Eintrag, welche Version behalten werden soll.</p>
+
+      <div v-for="(item, i) in conflictModal.items" :key="i" style="border:1px solid #E5E7EB;border-radius:10px;padding:14px;margin-bottom:12px">
+        <div style="font-size:12px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">{{item.label}}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div @click="item.choice='local'"
+            :style="{border:'2px solid '+(item.choice==='local'?'#3B82F6':'#E5E7EB'),borderRadius:'8px',padding:'12px',cursor:'pointer',background:item.choice==='local'?'#EFF6FF':'#FAFAFA',transition:'all .15s'}">
+            <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px">
+              <div :style="{width:'14px',height:'14px',borderRadius:'50%',border:'2px solid '+(item.choice==='local'?'#3B82F6':'#D1D5DB'),background:item.choice==='local'?'#3B82F6':'white',flex:'0 0 auto'}"></div>
+              <span style="font-size:11px;font-weight:700;color:#3B82F6">DEINE VERSION</span>
+            </div>
+            <div v-for="row in item.localRows" :key="row.k" style="font-size:12px;display:flex;gap:6px;margin-bottom:3px">
+              <span style="color:#9CA3AF;flex:0 0 90px">{{row.k}}</span>
+              <span :style="{fontWeight:row.diff?'700':'400',color:row.diff?'#1D4ED8':'#111'}">{{row.v}}</span>
+            </div>
+          </div>
+          <div @click="item.choice='remote'"
+            :style="{border:'2px solid '+(item.choice==='remote'?'#3B82F6':'#E5E7EB'),borderRadius:'8px',padding:'12px',cursor:'pointer',background:item.choice==='remote'?'#EFF6FF':'#FAFAFA',transition:'all .15s'}">
+            <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px">
+              <div :style="{width:'14px',height:'14px',borderRadius:'50%',border:'2px solid '+(item.choice==='remote'?'#3B82F6':'#D1D5DB'),background:item.choice==='remote'?'#3B82F6':'white',flex:'0 0 auto'}"></div>
+              <span style="font-size:11px;font-weight:700;color:#3B82F6">FREMDE VERSION</span>
+            </div>
+            <div v-for="row in item.remoteRows" :key="row.k" style="font-size:12px;display:flex;gap:6px;margin-bottom:3px">
+              <span style="color:#9CA3AF;flex:0 0 90px">{{row.k}}</span>
+              <span :style="{fontWeight:row.diff?'700':'400',color:row.diff?'#1D4ED8':'#111'}">{{row.v}}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:space-between;margin-top:18px;align-items:center">
+        <div style="display:flex;gap:6px">
+          <button class="btn" style="font-size:12px;padding:6px 12px" @click="conflictModal.items.forEach(i=>i.choice='local')">Alle meine</button>
+          <button class="btn" style="font-size:12px;padding:6px 12px" @click="conflictModal.items.forEach(i=>i.choice='remote')">Alle fremde</button>
+        </div>
+        <button class="btn btn-primary" @click="applyConflictResolution">Übernehmen</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" :class="[toast.type, {show: toast.show}]">{{toast.msg}}</div>
 </div>
 
@@ -1252,6 +1299,7 @@ createApp({
       modalBackdropDown: false,
       toast: {show:false, msg:'', type:'success'},
       chartU: null, chartS: null, chartF: null,
+      conflictModal: { show: false, items: [] },
     };
   },
 
@@ -2382,8 +2430,8 @@ createApp({
         await this._writeSilent();
         this.syncLastTime = new Date();
         this.syncStatus = 'ok';
-        if (merged.conflicts > 0)
-          this.notify(`Konflikt: ${merged.conflicts} Eintrag${merged.conflicts > 1 ? 'e wurden' : ' wurde'} von beiden Seiten geändert – deine Version behalten.`, 'error', 6000);
+        if (merged.conflictItems && merged.conflictItems.length > 0)
+          this._openConflictModal(merged.conflictItems);
         else if (hadDirty && merged.anyChanged)
           this.notify('Andere haben Änderungen vorgenommen während du bearbeitet hast – zusammengeführt.', 'warning', 5000);
       } catch(e) {
@@ -2403,8 +2451,8 @@ createApp({
         conflicts: 0,
       };
       let anyChanged = false;
-      let conflicts = 0;
-      const mergeCol = (baseArr, remoteArr, localArr) => {
+      const conflictItems = [];
+      const mergeCol = (baseArr, remoteArr, localArr, collName) => {
         const toMap = arr => new Map((arr||[]).map(x => [String(x.id), x]));
         const bMap = toMap(baseArr), rMap = toMap(remoteArr), lMap = toMap(localArr);
         const allIds = new Set([...bMap.keys(), ...rMap.keys(), ...lMap.keys()]);
@@ -2413,28 +2461,91 @@ createApp({
           const inB = bMap.has(id), inR = rMap.has(id), inL = lMap.has(id);
           const dirty = this._dirtyIds && this._dirtyIds.has(id);
           if (dirty && inL) {
-            if (inR && inB && JSON.stringify(rMap.get(id)) !== JSON.stringify(bMap.get(id))) conflicts++;
-            result.push(lMap.get(id)); // eigene Änderung gewinnt
+            if (inR && inB && JSON.stringify(rMap.get(id)) !== JSON.stringify(bMap.get(id)))
+              conflictItems.push({ collection: collName, id, local: lMap.get(id), remote: rMap.get(id) });
+            result.push(lMap.get(id)); // eigene Änderung gewinnt vorläufig
           } else if (!inR && inB) {
-            anyChanged = true; // remote gelöscht → wir übernehmen
+            anyChanged = true;
           } else if (inR) {
             if (!inL || JSON.stringify(rMap.get(id)) !== JSON.stringify(lMap.get(id))) anyChanged = true;
             result.push(rMap.get(id));
           } else if (inL && !inB) {
-            result.push(lMap.get(id)); // lokale Ergänzung noch nicht auf remote
+            result.push(lMap.get(id));
           }
         }
         return result;
       };
-      const projects     = mergeCol(this._syncBase.projects,     remote.projects||[],     this.projects);
-      const members      = mergeCol(this._syncBase.members,      remote.members||[],      this.members);
-      const allocations  = mergeCol(this._syncBase.allocations,  remote.allocations||[],  this.allocations);
-      const absences     = mergeCol(this._syncBase.absences||[], remote.absences||[],     this.absences||[]);
+      const projects     = mergeCol(this._syncBase.projects,     remote.projects||[],     this.projects,    'projects');
+      const members      = mergeCol(this._syncBase.members,      remote.members||[],      this.members,     'members');
+      const allocations  = mergeCol(this._syncBase.allocations,  remote.allocations||[],  this.allocations, 'allocations');
+      const absences     = mergeCol(this._syncBase.absences||[], remote.absences||[],     this.absences||[],'absences');
       const remoteDept = JSON.stringify(remote.departmentList||[]);
       const baseDept   = JSON.stringify(this._syncBase.departmentList||[]);
       const departmentList = remoteDept !== baseDept ? (remote.departmentList||this.departmentList) : this.departmentList;
       if (remoteDept !== baseDept) anyChanged = true;
-      return { projects, members, allocations, absences, departmentList, anyChanged, conflicts };
+      return { projects, members, allocations, absences, departmentList, anyChanged, conflictItems };
+    },
+    _describeRows(collection, rec) {
+      if (collection === 'allocations') {
+        const m = this.members.find(x => x.id === rec.memberId);
+        return [
+          { k: 'Mitarbeiter', v: m ? m.name : rec.memberId },
+          { k: 'Projekt',     v: rec.projectName },
+          { k: 'Von KW',      v: rec.startKW + ' / ' + rec.year },
+          { k: 'Bis KW',      v: rec.endKW + ' / ' + rec.year },
+          { k: 'h/Woche',     v: rec.hoursPerWeek },
+        ];
+      }
+      if (collection === 'absences') {
+        const m = this.members.find(x => x.id === rec.memberId);
+        return [
+          { k: 'Mitarbeiter', v: m ? m.name : rec.memberId },
+          { k: 'Von KW',      v: rec.startKW + ' / ' + rec.year },
+          { k: 'Bis KW',      v: rec.endKW + ' / ' + rec.year },
+          { k: 'Notiz',       v: rec.note || '–' },
+        ];
+      }
+      if (collection === 'projects') return [
+        { k: 'Name',   v: rec.name },
+        { k: 'Budget', v: rec.budgetHours ? rec.budgetHours + ' h' : '–' },
+      ];
+      if (collection === 'members') return [
+        { k: 'Name',       v: rec.name },
+        { k: 'h/Woche',    v: rec.hoursPerWeek },
+        { k: 'Abteilung',  v: rec.department || '–' },
+      ];
+      return Object.entries(rec).map(([k, v]) => ({ k, v: String(v) }));
+    },
+    _openConflictModal(conflictItems) {
+      const collLabels = { allocations: 'Zuweisung', absences: 'Abwesenheit', projects: 'Projekt', members: 'Mitarbeiter' };
+      this.conflictModal.items = conflictItems.map(item => {
+        const localRows  = this._describeRows(item.collection, item.local);
+        const remoteRows = this._describeRows(item.collection, item.remote);
+        // Mark differing fields
+        remoteRows.forEach((r, i) => {
+          const diff = String(localRows[i]?.v) !== String(r.v);
+          localRows[i].diff = diff;
+          r.diff = diff;
+        });
+        const label = (collLabels[item.collection] || item.collection) + ': ' + (item.local.name || item.local.projectName || item.id);
+        return { ...item, label, localRows, remoteRows, choice: 'local' };
+      });
+      this.conflictModal.show = true;
+    },
+    async applyConflictResolution() {
+      const colMap = { allocations: this.allocations, members: this.members, projects: this.projects, absences: this.absences };
+      for (const item of this.conflictModal.items) {
+        if (item.choice === 'remote') {
+          const col = colMap[item.collection];
+          if (col) {
+            const idx = col.findIndex(x => String(x.id) === String(item.id));
+            if (idx >= 0) Object.assign(col[idx], item.remote);
+          }
+        }
+      }
+      this.conflictModal.show = false;
+      await this._writeSilent();
+      this.notify('Konflikte aufgelöst', 'success');
     },
     formatLockTime(iso) {
       if (!iso) return '';
