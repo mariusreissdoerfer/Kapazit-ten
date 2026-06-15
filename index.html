@@ -1736,7 +1736,9 @@ createApp({
       this.showAllocModal = true;
     },
     editAlloc(a) {
-      this.allocModal = {id:a.id, memberId:a.memberId, projectName:a.projectName, focus:a.focus||'Konstruktion', startKW:a.startKW, endKW:a.endKW, year:a.year, hoursPerWeek:a.hoursPerWeek, pct:25, inputMode:'pct', totalHours:0, derived:'totalHours'};
+      const _m = this.members.find(x => x.id === a.memberId);
+      const _pct = (_m && _m.hoursPerWeek) ? Math.round(a.hoursPerWeek / _m.hoursPerWeek * 100) : 25;
+      this.allocModal = {id:a.id, memberId:a.memberId, projectName:a.projectName, focus:a.focus||'Konstruktion', startKW:a.startKW, endKW:a.endKW, year:a.year, hoursPerWeek:a.hoursPerWeek, pct:_pct, inputMode:'pct', totalHours:0, derived:'totalHours'};
       this.$nextTick(() => this.recalcDerived());
       this.showAllocModal = true;
     },
