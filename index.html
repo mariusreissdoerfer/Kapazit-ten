@@ -2353,7 +2353,7 @@ createApp({
       this._stopSync();
       this._setSyncBase();
       if (this._dirtyIds) this._dirtyIds.clear();
-      this._syncInterval = setInterval(() => this._autoSync(), 30000);
+      this._syncInterval = setInterval(() => this._autoSync(), 10000);
     },
     _stopSync() {
       if (this._syncInterval) { clearInterval(this._syncInterval); this._syncInterval = null; }
