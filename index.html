@@ -332,15 +332,15 @@ select.form-control{cursor:pointer}
                 </span>
                 Alle Abteilungen
               </label>
-              <label v-for="dep in departments" :key="dep"
+              <label v-for="node in departmentTree" :key="node.name"
                 style="display:flex;align-items:center;gap:8px;padding:7px 14px;cursor:pointer;font-size:13px;color:#1E293B;font-weight:500"
-                :style="{background:globalDepts.includes(dep)?'#F5F3FF':''}"
-                @click.prevent="globalDepts.includes(dep)?globalDepts=globalDepts.filter(d=>d!==dep):globalDepts.push(dep)">
+                :style="{background:globalDepts.includes(node.name)?'#F5F3FF':'',paddingLeft:(14+node.depth*16)+'px'}"
+                @click.prevent="globalDepts.includes(node.name)?globalDepts=globalDepts.filter(d=>d!==node.name):globalDepts.push(node.name)">
                 <span style="width:16px;height:16px;border-radius:4px;border:1.5px solid #CBD5E1;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#fff"
-                  :style="globalDepts.includes(dep)?{background:'#6366F1',borderColor:'#6366F1'}:{}">
-                  <svg v-if="globalDepts.includes(dep)" fill="none" stroke="#fff" stroke-width="3" viewBox="0 0 24 24" width="10" height="10"><polyline points="20 6 9 17 4 12"/></svg>
+                  :style="globalDepts.includes(node.name)?{background:'#6366F1',borderColor:'#6366F1'}:{}">
+                  <svg v-if="globalDepts.includes(node.name)" fill="none" stroke="#fff" stroke-width="3" viewBox="0 0 24 24" width="10" height="10"><polyline points="20 6 9 17 4 12"/></svg>
                 </span>
-                {{dep}}
+                {{node.name}}
               </label>
             </div>
           </div>
@@ -668,6 +668,9 @@ select.form-control{cursor:pointer}
               @dragstart="kanbanDragItem=proj.id"
               @dragend="kanbanDragItem=null;kanbanDragTarget=null">
               <div class="card-name">{{proj.name}}</div>
+              <div v-if="proj.parentId != null" style="font-size:11px;color:#64748B;margin:-4px 0 4px 0">
+                ↳ {{(projects.find(pp=>pp.id===proj.parentId)||{}).name||''}}
+              </div>
               <div class="card-meta">
                 <span :class="getFocusBadgeClass(proj.focus)" class="badge">{{proj.focus}}</span>
                 <span :class="getPriorityBadgeClass(proj.priority)" class="badge">{{proj.priority}}</span>
@@ -708,17 +711,21 @@ select.form-control{cursor:pointer}
             </tr>
           </thead>
           <tbody>
-            <tr v-for="proj in filteredSortedProjects" :key="proj.id">
-              <td style="font-family:monospace;font-size:12px;color:#64748B">{{proj.projectId || '—'}}</td>
-              <td style="max-width:240px"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" :title="proj.name">{{proj.name}}</div></td>
-              <td><span :class="getFocusBadgeClass(proj.focus)" class="badge">{{proj.focus}}</span></td>
-              <td><span v-if="proj.theme" class="badge badge-gray">{{proj.theme}}</span></td>
-              <td><span :class="getStatusBadgeClass(proj.status)" class="badge">{{proj.status}}</span></td>
-              <td><span :class="getPriorityBadgeClass(proj.priority)" class="badge">{{proj.priority}}</span></td>
-              <td><span v-for="d in (proj.departments||[])" :key="d" class="badge badge-gray" style="margin-right:3px">{{d}}</span><span v-if="!(proj.departments||[]).length" style="color:#CBD5E1">—</span></td>
-              <td style="font-size:12px;color:#64748B">{{proj.pmGlobal||proj.pmEngineering||'—'}}</td>
+            <tr v-for="node in filteredProjectTree" :key="node.project.id">
+              <td style="font-family:monospace;font-size:12px;color:#64748B">{{node.project.projectId || '—'}}</td>
+              <td style="max-width:240px">
+                <div :style="{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',paddingLeft:(node.depth*18)+'px'}" :title="node.project.name">
+                  <span v-if="node.depth>0" style="color:#94A3B8;margin-right:6px">↳</span>{{node.project.name}}
+                </div>
+              </td>
+              <td><span :class="getFocusBadgeClass(node.project.focus)" class="badge">{{node.project.focus}}</span></td>
+              <td><span v-if="node.project.theme" class="badge badge-gray">{{node.project.theme}}</span></td>
+              <td><span :class="getStatusBadgeClass(node.project.status)" class="badge">{{node.project.status}}</span></td>
+              <td><span :class="getPriorityBadgeClass(node.project.priority)" class="badge">{{node.project.priority}}</span></td>
+              <td><span v-for="d in (node.project.departments||[])" :key="d" class="badge badge-gray" style="margin-right:3px">{{d}}</span><span v-if="!(node.project.departments||[]).length" style="color:#CBD5E1">—</span></td>
+              <td style="font-size:12px;color:#64748B">{{node.project.pmGlobal||node.project.pmEngineering||'—'}}</td>
               <td style="text-align:right">
-                <button class="btn btn-secondary btn-sm" @click="openProjectModal(proj)">Bearbeiten</button>
+                <button class="btn btn-secondary btn-sm" @click="openProjectModal(node.project)">Bearbeiten</button>
               </td>
             </tr>
           </tbody>
@@ -784,15 +791,22 @@ select.form-control{cursor:pointer}
         </div>
         <div class="settings-section">
           <h3>Abteilungen</h3>
-          <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
-            <div v-for="dep in departmentList" :key="dep" style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px">
-              <span style="font-size:13px;font-weight:600;color:#1E293B">{{dep}}</span>
-              <button class="btn btn-danger btn-sm" @click="deleteDepartment(dep)" style="padding:3px 8px;font-size:12px">✕</button>
+          <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
+            <div v-for="node in departmentTree" :key="node.name"
+              :style="{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'9px 12px',background:'#F8FAFC',border:'1px solid #E2E8F0',borderRadius:'8px',marginLeft:(node.depth*20)+'px'}">
+              <span style="font-size:13px;font-weight:600;color:#1E293B">
+                <span v-if="node.depth>0" style="color:#94A3B8;margin-right:6px">↳</span>{{node.name}}
+              </span>
+              <button class="btn btn-danger btn-sm" @click="deleteDepartment(node.name)" style="padding:3px 8px;font-size:12px">✕</button>
             </div>
             <div v-if="!departmentList.length" style="font-size:13px;color:#94A3B8;padding:8px 0">Noch keine Abteilungen angelegt.</div>
           </div>
-          <div style="display:flex;gap:8px">
-            <input class="form-control" v-model="newDepartmentName" placeholder="z.B. Musterabteilung Köln" style="flex:1" @keydown.enter="addDepartment">
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <input class="form-control" v-model="newDepartmentName" placeholder="z.B. Musterabteilung Köln" style="flex:2;min-width:180px" @keydown.enter="addDepartment">
+            <select class="form-control" v-model="newDepartmentParent" style="flex:1;min-width:160px">
+              <option value="">— Top-Level —</option>
+              <option v-for="node in departmentTree" :key="node.name" :value="node.name">{{'– '.repeat(node.depth)}}{{node.name}}</option>
+            </select>
             <button class="btn btn-primary" @click="addDepartment">Hinzufügen</button>
           </div>
         </div>
@@ -848,7 +862,7 @@ select.form-control{cursor:pointer}
             <label class="form-label">Projekt</label>
             <div style="display:flex;gap:6px;align-items:center">
               <select class="form-control" v-model="allocModal.projectName" @change="onAllocProjectChange">
-                <option v-for="p in projects.filter(p=>p.status!=='Abgeschlossen' && (!globalDepts.length || (p.departments||[]).some(d=>globalDepts.includes(d))))" :key="p.id" :value="p.name">{{p.name}}</option>
+                <option v-for="p in allocSelectableProjects" :key="p.id" :value="p.name">{{p.name}}</option>
               </select>
               <button type="button" @click="openNewProjectFromAlloc" title="Neues Projekt anlegen" style="flex-shrink:0;background:#6366F1;color:#fff;border:none;border-radius:7px;width:30px;height:30px;font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>
             </div>
@@ -1045,16 +1059,27 @@ select.form-control{cursor:pointer}
             <input class="form-control" v-model="projectModal.pmGlobal">
           </div>
         </div>
+        <div class="form-group">
+          <label class="form-label">Übergeordnetes Projekt</label>
+          <select class="form-control" v-model="projectModal.parentId">
+            <option :value="null">— Kein (Top-Level) —</option>
+            <option v-for="n in availableParentProjects" :key="n.project.id" :value="n.project.id">{{'– '.repeat(n.depth)}}{{n.project.name}}</option>
+          </select>
+          <div v-if="projectModal.id && !isProjectLeaf(projectModal)" style="margin-top:6px;font-size:12px;color:#92400E;background:#FEF3C7;padding:5px 9px;border-radius:6px">
+            Dieses Projekt hat Unterprojekte – Zuweisungen können nur an Blättern hängen.
+          </div>
+        </div>
         <div class="form-group" v-if="departmentList.length">
           <label class="form-label">Abteilungen</label>
-          <div style="display:flex;flex-wrap:wrap;gap:8px;padding:10px 12px;border:1px solid #E2E8F0;border-radius:8px;background:#FAFAFA">
-            <label v-for="dep in departmentList" :key="dep" style="display:flex;align-items:center;gap:6px;font-size:13px;color:#1E293B;cursor:pointer;white-space:nowrap"
-              @click.prevent="projectModal.departments.includes(dep)?projectModal.departments=projectModal.departments.filter(d=>d!==dep):projectModal.departments.push(dep)">
+          <div style="display:flex;flex-direction:column;gap:6px;padding:10px 12px;border:1px solid #E2E8F0;border-radius:8px;background:#FAFAFA">
+            <label v-for="node in departmentTree" :key="node.name" style="display:flex;align-items:center;gap:6px;font-size:13px;color:#1E293B;cursor:pointer;white-space:nowrap"
+              :style="{paddingLeft:(node.depth*16)+'px'}"
+              @click.prevent="projectModal.departments.includes(node.name)?projectModal.departments=projectModal.departments.filter(d=>d!==node.name):projectModal.departments.push(node.name)">
               <span style="width:16px;height:16px;border-radius:4px;border:1.5px solid #CBD5E1;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#fff"
-                :style="projectModal.departments.includes(dep)?{background:'#6366F1',borderColor:'#6366F1'}:{}">
-                <svg v-if="projectModal.departments.includes(dep)" fill="none" stroke="#fff" stroke-width="3" viewBox="0 0 24 24" width="10" height="10"><polyline points="20 6 9 17 4 12"/></svg>
+                :style="projectModal.departments.includes(node.name)?{background:'#6366F1',borderColor:'#6366F1'}:{}">
+                <svg v-if="projectModal.departments.includes(node.name)" fill="none" stroke="#fff" stroke-width="3" viewBox="0 0 24 24" width="10" height="10"><polyline points="20 6 9 17 4 12"/></svg>
               </span>
-              {{dep}}
+              {{node.name}}
             </label>
           </div>
         </div>
@@ -1240,8 +1265,10 @@ createApp({
 
       members:     (saved.members || JSON.parse(JSON.stringify(INITIAL_MEMBERS))).map(m => ({...m, department: m.department || ''})),
       departmentList: saved.departmentList || [...new Set((saved.members || INITIAL_MEMBERS).map(m => m.department).filter(Boolean))].sort(),
+      departmentParents: saved.departmentParents || {},
       newDepartmentName: '',
-      projects:    saved.projects    || JSON.parse(JSON.stringify(INITIAL_PROJECTS)),
+      newDepartmentParent: '',
+      projects:    (saved.projects || JSON.parse(JSON.stringify(INITIAL_PROJECTS))).map(p => ({...p, parentId: p.parentId == null ? null : p.parentId})),
       allocations: (saved.allocations || JSON.parse(JSON.stringify(INITIAL_ALLOCATIONS))).map(a => {
         if (a.month && !a.startKW) {
           const mg = MONTH_GROUPS.find(g => g.month === a.month) || MONTH_GROUPS[4];
@@ -1283,7 +1310,7 @@ createApp({
       absenceModal: {id:null, memberId:null, startKW:23, endKW:26, year:new Date().getFullYear(), pct:100},
       returnToAllocModal: false,
       showProjectModal: false,
-      projectModal: {id:null, projectId:'', name:'', focus:'Konstruktion', theme:'', status:'Aktiv', priority:'Mittel', startDate:'', endDate:'', budgetHours:'', scope:'', pmEngineering:'', pmGlobal:'', departments:[]},
+      projectModal: {id:null, projectId:'', name:'', focus:'Konstruktion', theme:'', status:'Aktiv', priority:'Mittel', startDate:'', endDate:'', budgetHours:'', scope:'', pmEngineering:'', pmGlobal:'', departments:[], parentId:null},
       showMemberModal: false,
       memberModal: {id:null, name:'', hoursPerWeek:35, grundlastPct:15, color:'#6366F1', department:''},
 
@@ -1310,10 +1337,30 @@ createApp({
     currentKW() {
       return isoWeekOfYear(new Date());
     },
+    expandedGlobalDepts() {
+      return this.expandDepartments(this.globalDepts);
+    },
+    availableParentProjects() {
+      const editId = this.projectModal && this.projectModal.id;
+      const blocked = new Set();
+      if (editId != null) this.getProjectDescendantIds(editId, true).forEach(i => blocked.add(i));
+      return this.projectTree.filter(n => !blocked.has(n.project.id));
+    },
+    allocSelectableProjects() {
+      const exp = this.expandedGlobalDepts;
+      const leaves = this.leafProjectIds;
+      const current = this.allocModal && this.allocModal.projectName;
+      return this.projects.filter(p =>
+        p.status !== 'Abgeschlossen' &&
+        (leaves.has(p.id) || p.name === current) &&
+        (!exp.length || (p.departments||[]).some(d => exp.includes(d)))
+      );
+    },
     kanbanCols() {
       const statuses = [{status:'Aktiv',color:'#10B981'},{status:'Problem',color:'#EF4444'},{status:'On hold',color:'#F59E0B'},{status:'Abgeschlossen',color:'#94A3B8'}];
-      const list = this.globalDepts.length
-        ? this.projects.filter(p => (p.departments||[]).some(d => this.globalDepts.includes(d)))
+      const exp = this.expandedGlobalDepts;
+      const list = exp.length
+        ? this.projects.filter(p => (p.departments||[]).some(d => exp.includes(d)))
         : this.projects;
       return statuses.map(s => ({...s, projects: list.filter(p => p.status === s.status)}));
     },
@@ -1323,12 +1370,14 @@ createApp({
       return this.globalDepts.length + ' Abteilungen';
     },
     dashboardMembers() {
-      if (!this.globalDepts.length) return this.members;
-      return this.members.filter(m => this.globalDepts.includes(m.department));
+      const exp = this.expandedGlobalDepts;
+      if (!exp.length) return this.members;
+      return this.members.filter(m => exp.includes(m.department));
     },
     filteredSortedProjects() {
-      let list = this.globalDepts.length
-        ? this.projects.filter(p => (p.departments||[]).some(d => this.globalDepts.includes(d)))
+      const exp = this.expandedGlobalDepts;
+      let list = exp.length
+        ? this.projects.filter(p => (p.departments||[]).some(d => exp.includes(d)))
         : this.projects;
       const q = this.projectSearch.toLowerCase();
       if (q) list = list.filter(p => p.name.toLowerCase().includes(q) || (p.projectId||'').toLowerCase().includes(q));
@@ -1338,6 +1387,14 @@ createApp({
         const bv = (b[key]||'').toString().toLowerCase();
         return this.sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
       });
+    },
+    filteredProjectTree() {
+      const allowed = new Set(this.filteredSortedProjects.map(p => p.id));
+      const q = this.projectSearch.trim();
+      const useHierarchy = !q && this.sortKey === 'name';
+      if (!useHierarchy) return this.filteredSortedProjects.map(p => ({ project: p, depth: 0 }));
+      const flat = this.projectTree.filter(n => allowed.has(n.project.id));
+      return this.sortAsc ? flat : [...flat].reverse();
     },
     topProjects() {
       const memberIds = new Set(this.dashboardMembers.map(m => m.id));
@@ -1386,6 +1443,52 @@ createApp({
     departments() {
       return this.departmentList;
     },
+    departmentTree() {
+      const parents = this.departmentParents || {};
+      const childrenMap = {};
+      const roots = [];
+      for (const name of this.departmentList) {
+        const p = parents[name];
+        if (p && this.departmentList.includes(p)) {
+          (childrenMap[p] = childrenMap[p] || []).push(name);
+        } else {
+          roots.push(name);
+        }
+      }
+      const flat = [];
+      const visit = (name, depth) => {
+        flat.push({ name, depth });
+        const kids = (childrenMap[name] || []).slice().sort();
+        kids.forEach(k => visit(k, depth + 1));
+      };
+      roots.slice().sort().forEach(r => visit(r, 0));
+      return flat;
+    },
+    projectTree() {
+      const childrenMap = {};
+      const roots = [];
+      const idSet = new Set(this.projects.map(p => p.id));
+      for (const p of this.projects) {
+        if (p.parentId != null && idSet.has(p.parentId)) {
+          (childrenMap[p.parentId] = childrenMap[p.parentId] || []).push(p);
+        } else {
+          roots.push(p);
+        }
+      }
+      const flat = [];
+      const sortByName = arr => arr.slice().sort((a,b) => (a.name||'').localeCompare(b.name||''));
+      const visit = (p, depth) => {
+        flat.push({ project: p, depth });
+        sortByName(childrenMap[p.id] || []).forEach(c => visit(c, depth + 1));
+      };
+      sortByName(roots).forEach(r => visit(r, 0));
+      return flat;
+    },
+    leafProjectIds() {
+      const hasChild = new Set();
+      for (const p of this.projects) if (p.parentId != null) hasChild.add(p.parentId);
+      return new Set(this.projects.filter(p => !hasChild.has(p.id)).map(p => p.id));
+    },
     autoSaveActive() {
       if (!this.autoSaveEnabled) return false;
       if (!this.fileHandle) return false;
@@ -1403,8 +1506,9 @@ createApp({
       return 'vor ' + Math.round(diff / 60) + ' min';
     },
     visibleMembers() {
-      if (!this.globalDepts.length) return this.members;
-      return this.members.filter(m => this.globalDepts.includes(m.department));
+      const exp = this.expandedGlobalDepts;
+      if (!exp.length) return this.members;
+      return this.members.filter(m => exp.includes(m.department));
     },
     allocModalHours() {
       const m = this.members.find(x => x.id === this.allocModal.memberId);
@@ -1929,25 +2033,72 @@ createApp({
     getProjectByName(name) {
       return this.projects.find(p => p.name === name) || null;
     },
+    getDepartmentDescendants(name, includeSelf = true) {
+      const parents = this.departmentParents || {};
+      const result = includeSelf ? [name] : [];
+      const stack = [name];
+      while (stack.length) {
+        const cur = stack.pop();
+        for (const d of this.departmentList) {
+          if (parents[d] === cur) { result.push(d); stack.push(d); }
+        }
+      }
+      return result;
+    },
+    expandDepartments(names) {
+      if (!names || !names.length) return [];
+      const out = new Set();
+      for (const n of names) this.getDepartmentDescendants(n, true).forEach(x => out.add(x));
+      return [...out];
+    },
+    getProjectDescendantIds(id, includeSelf = true) {
+      const result = includeSelf ? [id] : [];
+      const stack = [id];
+      while (stack.length) {
+        const cur = stack.pop();
+        for (const p of this.projects) {
+          if (p.parentId === cur) { result.push(p.id); stack.push(p.id); }
+        }
+      }
+      return result;
+    },
+    isProjectLeaf(p) {
+      if (!p) return false;
+      return !this.projects.some(c => c.parentId === p.id);
+    },
+    wouldCreateCycle(projectId, candidateParentId) {
+      if (projectId == null || candidateParentId == null) return false;
+      if (projectId === candidateParentId) return true;
+      const desc = new Set(this.getProjectDescendantIds(projectId, true));
+      return desc.has(candidateParentId);
+    },
     openProjectModal(proj) {
       this.returnToAllocModal = false;
-      this.projectModal = proj ? {...proj, departments: proj.departments || [], budgetHours: proj.budgetHours || ''} : {id:null, projectId:'', name:'', focus:'Konstruktion', theme:'', status:'Aktiv', priority:'Mittel', startDate:'', endDate:'', budgetHours:'', scope:'', pmEngineering:'', pmGlobal:'', departments:[]};
+      this.projectModal = proj ? {...proj, departments: proj.departments || [], budgetHours: proj.budgetHours || '', parentId: proj.parentId == null ? null : proj.parentId} : {id:null, projectId:'', name:'', focus:'Konstruktion', theme:'', status:'Aktiv', priority:'Mittel', startDate:'', endDate:'', budgetHours:'', scope:'', pmEngineering:'', pmGlobal:'', departments:[], parentId:null};
       this.showProjectModal = true;
     },
     openNewProjectFromAlloc() {
       this.returnToAllocModal = true;
       this.showAllocModal = false;
-      this.projectModal = {id:null, projectId:'', name:'', focus:'Konstruktion', theme:'', status:'Aktiv', priority:'Mittel', startDate:'', endDate:'', budgetHours:'', scope:'', pmEngineering:'', pmGlobal:'', departments:[]};
+      this.projectModal = {id:null, projectId:'', name:'', focus:'Konstruktion', theme:'', status:'Aktiv', priority:'Mittel', startDate:'', endDate:'', budgetHours:'', scope:'', pmEngineering:'', pmGlobal:'', departments:[], parentId:null};
       this.showProjectModal = true;
     },
     saveProject() {
       if (!this.projectModal.name) { this.notify('Bitte Namen eingeben', 'error'); return; }
+      let parentId = this.projectModal.parentId;
+      if (parentId === '' || parentId === undefined) parentId = null;
+      if (parentId != null) parentId = Number(parentId);
+      if (this.projectModal.id != null && parentId != null && this.wouldCreateCycle(this.projectModal.id, parentId)) {
+        this.notify('Ungültig: Projekt kann nicht unter sich selbst eingeordnet werden', 'error');
+        return;
+      }
+      const payload = {...this.projectModal, parentId};
       if (this.projectModal.id) {
         const i = this.projects.findIndex(p => p.id === this.projectModal.id);
-        if (i >= 0) { Object.assign(this.projects[i], this.projectModal); this.markDirty(String(this.projectModal.id)); }
+        if (i >= 0) { Object.assign(this.projects[i], payload); this.markDirty(String(this.projectModal.id)); }
       } else {
         const newProjId = Math.max(0, ...this.projects.map(p => p.id)) + 1;
-        this.projects.push({...this.projectModal, id: newProjId});
+        this.projects.push({...payload, id: newProjId});
         getProjectColor(this.projectModal.name);
         this.markDirty(String(newProjId));
       }
@@ -1967,6 +2118,10 @@ createApp({
       const name = proj.name;
       this.markDirty(String(id));
       this.allocations.filter(a => a.projectName === name).forEach(a => this.markDirty(String(a.id)));
+      const newParent = proj.parentId == null ? null : proj.parentId;
+      this.projects.forEach(p => {
+        if (p.parentId === id) { p.parentId = newParent; this.markDirty(String(p.id)); }
+      });
       this.projects.splice(this.projects.findIndex(p => p.id === id), 1);
       const before = this.allocations.length;
       this.allocations = this.allocations.filter(a => a.projectName !== name);
@@ -2069,7 +2224,7 @@ createApp({
       URL.revokeObjectURL(a.href);
     },
     buildExportData() {
-      return {version:'1.5', exportedAt: new Date().toISOString().slice(0,10), editors:this.editors, departmentList:this.departmentList, members:this.members, projects:this.projects, allocations:this.allocations, absences:this.absences};
+      return {version:'1.6', exportedAt: new Date().toISOString().slice(0,10), editors:this.editors, departmentList:this.departmentList, departmentParents:this.departmentParents, members:this.members, projects:this.projects, allocations:this.allocations, absences:this.absences};
     },
     loadFromData(data) {
       this.editors = data.editors || (data.openedBy ? [{name: data.openedBy.name, lastSeen: data.openedBy.since}] : []);
@@ -2078,6 +2233,7 @@ createApp({
       } else if (data.members) {
         this.departmentList = [...new Set(data.members.map(m => m.department).filter(Boolean))].sort();
       }
+      this.departmentParents = data.departmentParents || {};
       if (data.members)     this.members = data.members.map(m => ({...m, department: m.department || ''}));
       if (data.projects)    { this.projects = data.projects; this.projects.forEach(p => getProjectColor(p.name)); }
       if (data.allocations) {
@@ -2303,12 +2459,30 @@ createApp({
       const name = this.newDepartmentName.trim();
       if (!name) return;
       if (this.departmentList.includes(name)) { this.notify('Abteilung existiert bereits', 'error'); return; }
+      const parent = (this.newDepartmentParent || '').trim();
       this.departmentList = [...this.departmentList, name].sort();
+      if (parent && this.departmentList.includes(parent)) {
+        this.departmentParents = {...this.departmentParents, [name]: parent};
+      }
       this.newDepartmentName = '';
+      this.newDepartmentParent = '';
       this.autoSave();
     },
     deleteDepartment(dep) {
-      if (!confirm(`Abteilung „${dep}" wirklich löschen?\n\nMitglieder behalten ihre bestehende Abteilungs-Zuweisung.`)) return;
+      const parents = this.departmentParents || {};
+      const childCount = this.departmentList.filter(d => parents[d] === dep).length;
+      const extra = childCount ? `\n\n${childCount} Unterabteilung${childCount===1?'':'en'} rücken eine Ebene hoch.` : '';
+      if (!confirm(`Abteilung „${dep}" wirklich löschen?\n\nMitglieder behalten ihre bestehende Abteilungs-Zuweisung.${extra}`)) return;
+      const newParent = parents[dep] || null;
+      const next = {...parents};
+      delete next[dep];
+      for (const k of Object.keys(next)) {
+        if (next[k] === dep) {
+          if (newParent) next[k] = newParent;
+          else delete next[k];
+        }
+      }
+      this.departmentParents = next;
       this.departmentList = this.departmentList.filter(d => d !== dep);
       this.autoSave();
     },
@@ -2397,6 +2571,7 @@ createApp({
         projects: this.projects, members: this.members,
         allocations: this.allocations, absences: this.absences,
         departmentList: this.departmentList,
+        departmentParents: this.departmentParents,
       }));
     },
     _startSync() {
@@ -2422,6 +2597,7 @@ createApp({
           this.allocations = merged.allocations;
           this.absences = merged.absences;
           this.departmentList = merged.departmentList;
+          this.departmentParents = merged.departmentParents;
           this.projects.forEach(p => getProjectColor(p.name));
         }
         // Editors aus Remote übernehmen (andere Nutzer), eigenen Eintrag aktualisieren
@@ -2449,6 +2625,7 @@ createApp({
         allocations: remote.allocations || this.allocations,
         absences: remote.absences || this.absences,
         departmentList: remote.departmentList || this.departmentList,
+        departmentParents: remote.departmentParents || this.departmentParents,
         anyChanged: false,
         conflicts: 0,
       };
@@ -2487,7 +2664,11 @@ createApp({
       const baseDept   = JSON.stringify(this._syncBase.departmentList||[]);
       const departmentList = remoteDept !== baseDept ? (remote.departmentList||this.departmentList) : this.departmentList;
       if (remoteDept !== baseDept) anyChanged = true;
-      return { projects, members, allocations, absences, departmentList, anyChanged, conflictItems };
+      const remoteParents = JSON.stringify(remote.departmentParents||{});
+      const baseParents   = JSON.stringify(this._syncBase.departmentParents||{});
+      const departmentParents = remoteParents !== baseParents ? (remote.departmentParents||this.departmentParents) : this.departmentParents;
+      if (remoteParents !== baseParents) anyChanged = true;
+      return { projects, members, allocations, absences, departmentList, departmentParents, anyChanged, conflictItems };
     },
     _describeRows(collection, rec) {
       if (collection === 'allocations') {
