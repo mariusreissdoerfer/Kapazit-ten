@@ -115,7 +115,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#F1F5F9;color:#1E
 
 .gantt-bar{position:absolute;top:4px;bottom:4px;border-radius:5px;cursor:grab;display:flex;align-items:center;min-width:10px;transition:opacity .1s;box-shadow:0 1px 4px rgba(0,0,0,.18)}
 .gantt-bar:active,.gantt-bar.dragging{cursor:grabbing;box-shadow:0 3px 10px rgba(0,0,0,.25);z-index:10}
-.bar-label{font-size:10px;font-weight:700;color:#fff;padding:0 14px;padding-left:max(14px,calc(var(--gantt-sx,0px) - var(--bar-left,0px) + 14px));overflow:hidden;white-space:nowrap;text-overflow:ellipsis;flex:1;pointer-events:none;user-select:none;letter-spacing:.15px;text-shadow:-1px -1px 0 rgba(0,0,0,.75),1px -1px 0 rgba(0,0,0,.75),-1px 1px 0 rgba(0,0,0,.75),1px 1px 0 rgba(0,0,0,.75),0 0 3px rgba(0,0,0,.5)}
+.bar-label{font-size:10px;font-weight:400;color:#fff;padding:0 14px;padding-left:max(14px,calc(var(--gantt-sx,0px) - var(--bar-left,0px) + 14px));overflow:hidden;white-space:nowrap;text-overflow:ellipsis;flex:1;pointer-events:none;user-select:none;letter-spacing:.15px;text-shadow:-1px -1px 0 rgba(0,0,0,.75),1px -1px 0 rgba(0,0,0,.75),-1px 1px 0 rgba(0,0,0,.75),1px 1px 0 rgba(0,0,0,.75),0 0 3px rgba(0,0,0,.5)}
 .bar-handle{position:absolute;top:0;bottom:0;width:8px;cursor:ew-resize;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .1s}
 .bar-handle::after{content:'';width:2px;height:12px;background:rgba(255,255,255,.6);border-radius:1px}
 .gantt-bar:hover .bar-handle{opacity:1}
