@@ -1737,14 +1737,15 @@ createApp({
       }
     },
     _onMouseUp() {
-      if (this.dragState) {
-        const memberId = this.dragState.item.memberId;
-        this.markDirty(String(this.dragState.item.id));
-        this.autoSave();
-        this.dragState = null;
-        this.reorderFlashId = memberId;
-        setTimeout(() => { this.reorderFlashId = null; }, 500);
-      }
+      if (!this.dragState) return;
+      const {item, origStartKW, origEndKW} = this.dragState;
+      const changed = item.startKW !== origStartKW || item.endKW !== origEndKW;
+      this.dragState = null;
+      if (!changed) return;
+      this.markDirty(String(item.id));
+      this.autoSave();
+      this.reorderFlashId = item.memberId;
+      setTimeout(() => { this.reorderFlashId = null; }, 500);
     },
 
     onGanttClick(e) {
