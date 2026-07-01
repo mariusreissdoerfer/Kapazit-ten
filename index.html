@@ -876,6 +876,7 @@ select.form-control{cursor:pointer}
                 <option v-for="p in allocSelectableProjects" :key="p.id" :value="p.name">{{p.name}}</option>
               </select>
               <button type="button" @click="openNewProjectFromAlloc" title="Neues Projekt anlegen" style="flex-shrink:0;background:#6366F1;color:#fff;border:none;border-radius:7px;width:30px;height:30px;font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>
+              <button type="button" @click="openEditProjectFromAlloc" :disabled="!allocModal.projectName" title="Ausgewähltes Projekt bearbeiten" :style="{flexShrink:0,background:allocModal.projectName?'#0EA5E9':'#CBD5E1',color:'#fff',border:'none',borderRadius:'7px',width:'30px',height:'30px',cursor:allocModal.projectName?'pointer':'not-allowed',display:'flex',alignItems:'center',justifyContent:'center'}"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
             </div>
           </div>
         </div>
@@ -1318,7 +1319,7 @@ createApp({
       ganttMode: 'member',
       selectedColIdx: null,
       globalDepts: JSON.parse(localStorage.getItem('kapaGlobalDepts') || '[]'),
-      sidebarCollapsed: localStorage.getItem('kapaSidebarCollapsed') === '1',
+      sidebarCollapsed: localStorage.getItem('kapaSidebarCollapsed') !== '0',
       globalDeptDropdownOpen: false,
       colW: 80,
       sortKey: 'name', sortAsc: true,
@@ -2023,6 +2024,14 @@ createApp({
       this.projectModal = {id:null, projectId:'', name:'', focus:'Konstruktion', theme:'', status:'Aktiv', priority:'Mittel', startDate:'', endDate:'', budgetHours:'', scope:'', pmEngineering:'', pmGlobal:'', departments:[]};
       this.showProjectModal = true;
     },
+    openEditProjectFromAlloc() {
+      const proj = this.projects.find(p => p.name === this.allocModal.projectName);
+      if (!proj) { this.notify('Kein Projekt ausgewählt', 'error'); return; }
+      this.returnToAllocModal = true;
+      this.showAllocModal = false;
+      this.projectModal = {...proj, departments: proj.departments || [], budgetHours: proj.budgetHours || ''};
+      this.showProjectModal = true;
+    },
     saveProject() {
       if (!this.projectModal.name) { this.notify('Bitte Namen eingeben', 'error'); return; }
       if (this.projectModal.id) {
@@ -2037,9 +2046,13 @@ createApp({
       this.showProjectModal = false;
       this.autoSave();
       this.notify('Projekt gespeichert', 'success');
-      if (this.returnToAllocModal && !this.projectModal.id) {
-        const newName = this.projects[this.projects.length - 1].name;
-        this.allocModal.projectName = newName;
+      if (this.returnToAllocModal) {
+        if (!this.projectModal.id) {
+          const newName = this.projects[this.projects.length - 1].name;
+          this.allocModal.projectName = newName;
+        } else {
+          this.allocModal.projectName = this.projectModal.name;
+        }
         this.showAllocModal = true;
         this.returnToAllocModal = false;
       }
