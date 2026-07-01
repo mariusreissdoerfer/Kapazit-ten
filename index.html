@@ -668,9 +668,6 @@ select.form-control{cursor:pointer}
               @dragstart="kanbanDragItem=proj.id"
               @dragend="kanbanDragItem=null;kanbanDragTarget=null">
               <div class="card-name">{{proj.name}}</div>
-              <div v-if="proj.parentId != null" style="font-size:11px;color:#64748B;margin:-4px 0 4px 0">
-                ↳ {{(projects.find(pp=>pp.id===proj.parentId)||{}).name||''}}
-              </div>
               <div class="card-meta">
                 <span :class="getFocusBadgeClass(proj.focus)" class="badge">{{proj.focus}}</span>
                 <span :class="getPriorityBadgeClass(proj.priority)" class="badge">{{proj.priority}}</span>
@@ -711,21 +708,17 @@ select.form-control{cursor:pointer}
             </tr>
           </thead>
           <tbody>
-            <tr v-for="node in filteredProjectTree" :key="node.project.id">
-              <td style="font-family:monospace;font-size:12px;color:#64748B">{{node.project.projectId || '—'}}</td>
-              <td style="max-width:240px">
-                <div :style="{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',paddingLeft:(node.depth*18)+'px'}" :title="node.project.name">
-                  <span v-if="node.depth>0" style="color:#94A3B8;margin-right:6px">↳</span>{{node.project.name}}
-                </div>
-              </td>
-              <td><span :class="getFocusBadgeClass(node.project.focus)" class="badge">{{node.project.focus}}</span></td>
-              <td><span v-if="node.project.theme" class="badge badge-gray">{{node.project.theme}}</span></td>
-              <td><span :class="getStatusBadgeClass(node.project.status)" class="badge">{{node.project.status}}</span></td>
-              <td><span :class="getPriorityBadgeClass(node.project.priority)" class="badge">{{node.project.priority}}</span></td>
-              <td><span v-for="d in (node.project.departments||[])" :key="d" class="badge badge-gray" style="margin-right:3px">{{d}}</span><span v-if="!(node.project.departments||[]).length" style="color:#CBD5E1">—</span></td>
-              <td style="font-size:12px;color:#64748B">{{node.project.pmGlobal||node.project.pmEngineering||'—'}}</td>
+            <tr v-for="proj in filteredSortedProjects" :key="proj.id">
+              <td style="font-family:monospace;font-size:12px;color:#64748B">{{proj.projectId || '—'}}</td>
+              <td style="max-width:240px"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" :title="proj.name">{{proj.name}}</div></td>
+              <td><span :class="getFocusBadgeClass(proj.focus)" class="badge">{{proj.focus}}</span></td>
+              <td><span v-if="proj.theme" class="badge badge-gray">{{proj.theme}}</span></td>
+              <td><span :class="getStatusBadgeClass(proj.status)" class="badge">{{proj.status}}</span></td>
+              <td><span :class="getPriorityBadgeClass(proj.priority)" class="badge">{{proj.priority}}</span></td>
+              <td><span v-for="d in (proj.departments||[])" :key="d" class="badge badge-gray" style="margin-right:3px">{{d}}</span><span v-if="!(proj.departments||[]).length" style="color:#CBD5E1">—</span></td>
+              <td style="font-size:12px;color:#64748B">{{proj.pmGlobal||proj.pmEngineering||'—'}}</td>
               <td style="text-align:right">
-                <button class="btn btn-secondary btn-sm" @click="openProjectModal(node.project)">Bearbeiten</button>
+                <button class="btn btn-secondary btn-sm" @click="openProjectModal(proj)">Bearbeiten</button>
               </td>
             </tr>
           </tbody>
@@ -1059,16 +1052,6 @@ select.form-control{cursor:pointer}
             <input class="form-control" v-model="projectModal.pmGlobal">
           </div>
         </div>
-        <div class="form-group">
-          <label class="form-label">Übergeordnetes Projekt</label>
-          <select class="form-control" v-model="projectModal.parentId">
-            <option :value="null">— Kein (Top-Level) —</option>
-            <option v-for="n in availableParentProjects" :key="n.project.id" :value="n.project.id">{{'– '.repeat(n.depth)}}{{n.project.name}}</option>
-          </select>
-          <div v-if="projectModal.id && !isProjectLeaf(projectModal)" style="margin-top:6px;font-size:12px;color:#92400E;background:#FEF3C7;padding:5px 9px;border-radius:6px">
-            Dieses Projekt hat Unterprojekte – Zuweisungen können nur an Blättern hängen.
-          </div>
-        </div>
         <div class="form-group" v-if="departmentList.length">
           <label class="form-label">Abteilungen</label>
           <div style="display:flex;flex-direction:column;gap:6px;padding:10px 12px;border:1px solid #E2E8F0;border-radius:8px;background:#FAFAFA">
@@ -1268,7 +1251,7 @@ createApp({
       departmentParents: saved.departmentParents || {},
       newDepartmentName: '',
       newDepartmentParent: '',
-      projects:    (saved.projects || JSON.parse(JSON.stringify(INITIAL_PROJECTS))).map(p => ({...p, parentId: p.parentId == null ? null : p.parentId})),
+      projects:    saved.projects    || JSON.parse(JSON.stringify(INITIAL_PROJECTS)),
       allocations: (saved.allocations || JSON.parse(JSON.stringify(INITIAL_ALLOCATIONS))).map(a => {
         if (a.month && !a.startKW) {
           const mg = MONTH_GROUPS.find(g => g.month === a.month) || MONTH_GROUPS[4];
@@ -1310,7 +1293,7 @@ createApp({
       absenceModal: {id:null, memberId:null, startKW:23, endKW:26, year:new Date().getFullYear(), pct:100},
       returnToAllocModal: false,
       showProjectModal: false,
-      projectModal: {id:null, projectId:'', name:'', focus:'Konstruktion', theme:'', status:'Aktiv', priority:'Mittel', startDate:'', endDate:'', budgetHours:'', scope:'', pmEngineering:'', pmGlobal:'', departments:[], parentId:null},
+      projectModal: {id:null, projectId:'', name:'', focus:'Konstruktion', theme:'', status:'Aktiv', priority:'Mittel', startDate:'', endDate:'', budgetHours:'', scope:'', pmEngineering:'', pmGlobal:'', departments:[]},
       showMemberModal: false,
       memberModal: {id:null, name:'', hoursPerWeek:35, grundlastPct:15, color:'#6366F1', department:''},
 
@@ -1340,19 +1323,10 @@ createApp({
     expandedGlobalDepts() {
       return this.expandDepartments(this.globalDepts);
     },
-    availableParentProjects() {
-      const editId = this.projectModal && this.projectModal.id;
-      const blocked = new Set();
-      if (editId != null) this.getProjectDescendantIds(editId, true).forEach(i => blocked.add(i));
-      return this.projectTree.filter(n => !blocked.has(n.project.id));
-    },
     allocSelectableProjects() {
       const exp = this.expandedGlobalDepts;
-      const leaves = this.leafProjectIds;
-      const current = this.allocModal && this.allocModal.projectName;
       return this.projects.filter(p =>
         p.status !== 'Abgeschlossen' &&
-        (leaves.has(p.id) || p.name === current) &&
         (!exp.length || (p.departments||[]).some(d => exp.includes(d)))
       );
     },
@@ -1387,14 +1361,6 @@ createApp({
         const bv = (b[key]||'').toString().toLowerCase();
         return this.sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
       });
-    },
-    filteredProjectTree() {
-      const allowed = new Set(this.filteredSortedProjects.map(p => p.id));
-      const q = this.projectSearch.trim();
-      const useHierarchy = !q && this.sortKey === 'name';
-      if (!useHierarchy) return this.filteredSortedProjects.map(p => ({ project: p, depth: 0 }));
-      const flat = this.projectTree.filter(n => allowed.has(n.project.id));
-      return this.sortAsc ? flat : [...flat].reverse();
     },
     topProjects() {
       const memberIds = new Set(this.dashboardMembers.map(m => m.id));
@@ -1463,31 +1429,6 @@ createApp({
       };
       roots.slice().sort().forEach(r => visit(r, 0));
       return flat;
-    },
-    projectTree() {
-      const childrenMap = {};
-      const roots = [];
-      const idSet = new Set(this.projects.map(p => p.id));
-      for (const p of this.projects) {
-        if (p.parentId != null && idSet.has(p.parentId)) {
-          (childrenMap[p.parentId] = childrenMap[p.parentId] || []).push(p);
-        } else {
-          roots.push(p);
-        }
-      }
-      const flat = [];
-      const sortByName = arr => arr.slice().sort((a,b) => (a.name||'').localeCompare(b.name||''));
-      const visit = (p, depth) => {
-        flat.push({ project: p, depth });
-        sortByName(childrenMap[p.id] || []).forEach(c => visit(c, depth + 1));
-      };
-      sortByName(roots).forEach(r => visit(r, 0));
-      return flat;
-    },
-    leafProjectIds() {
-      const hasChild = new Set();
-      for (const p of this.projects) if (p.parentId != null) hasChild.add(p.parentId);
-      return new Set(this.projects.filter(p => !hasChild.has(p.id)).map(p => p.id));
     },
     autoSaveActive() {
       if (!this.autoSaveEnabled) return false;
@@ -2051,54 +1992,25 @@ createApp({
       for (const n of names) this.getDepartmentDescendants(n, true).forEach(x => out.add(x));
       return [...out];
     },
-    getProjectDescendantIds(id, includeSelf = true) {
-      const result = includeSelf ? [id] : [];
-      const stack = [id];
-      while (stack.length) {
-        const cur = stack.pop();
-        for (const p of this.projects) {
-          if (p.parentId === cur) { result.push(p.id); stack.push(p.id); }
-        }
-      }
-      return result;
-    },
-    isProjectLeaf(p) {
-      if (!p) return false;
-      return !this.projects.some(c => c.parentId === p.id);
-    },
-    wouldCreateCycle(projectId, candidateParentId) {
-      if (projectId == null || candidateParentId == null) return false;
-      if (projectId === candidateParentId) return true;
-      const desc = new Set(this.getProjectDescendantIds(projectId, true));
-      return desc.has(candidateParentId);
-    },
     openProjectModal(proj) {
       this.returnToAllocModal = false;
-      this.projectModal = proj ? {...proj, departments: proj.departments || [], budgetHours: proj.budgetHours || '', parentId: proj.parentId == null ? null : proj.parentId} : {id:null, projectId:'', name:'', focus:'Konstruktion', theme:'', status:'Aktiv', priority:'Mittel', startDate:'', endDate:'', budgetHours:'', scope:'', pmEngineering:'', pmGlobal:'', departments:[], parentId:null};
+      this.projectModal = proj ? {...proj, departments: proj.departments || [], budgetHours: proj.budgetHours || ''} : {id:null, projectId:'', name:'', focus:'Konstruktion', theme:'', status:'Aktiv', priority:'Mittel', startDate:'', endDate:'', budgetHours:'', scope:'', pmEngineering:'', pmGlobal:'', departments:[]};
       this.showProjectModal = true;
     },
     openNewProjectFromAlloc() {
       this.returnToAllocModal = true;
       this.showAllocModal = false;
-      this.projectModal = {id:null, projectId:'', name:'', focus:'Konstruktion', theme:'', status:'Aktiv', priority:'Mittel', startDate:'', endDate:'', budgetHours:'', scope:'', pmEngineering:'', pmGlobal:'', departments:[], parentId:null};
+      this.projectModal = {id:null, projectId:'', name:'', focus:'Konstruktion', theme:'', status:'Aktiv', priority:'Mittel', startDate:'', endDate:'', budgetHours:'', scope:'', pmEngineering:'', pmGlobal:'', departments:[]};
       this.showProjectModal = true;
     },
     saveProject() {
       if (!this.projectModal.name) { this.notify('Bitte Namen eingeben', 'error'); return; }
-      let parentId = this.projectModal.parentId;
-      if (parentId === '' || parentId === undefined) parentId = null;
-      if (parentId != null) parentId = Number(parentId);
-      if (this.projectModal.id != null && parentId != null && this.wouldCreateCycle(this.projectModal.id, parentId)) {
-        this.notify('Ungültig: Projekt kann nicht unter sich selbst eingeordnet werden', 'error');
-        return;
-      }
-      const payload = {...this.projectModal, parentId};
       if (this.projectModal.id) {
         const i = this.projects.findIndex(p => p.id === this.projectModal.id);
-        if (i >= 0) { Object.assign(this.projects[i], payload); this.markDirty(String(this.projectModal.id)); }
+        if (i >= 0) { Object.assign(this.projects[i], this.projectModal); this.markDirty(String(this.projectModal.id)); }
       } else {
         const newProjId = Math.max(0, ...this.projects.map(p => p.id)) + 1;
-        this.projects.push({...payload, id: newProjId});
+        this.projects.push({...this.projectModal, id: newProjId});
         getProjectColor(this.projectModal.name);
         this.markDirty(String(newProjId));
       }
@@ -2118,10 +2030,6 @@ createApp({
       const name = proj.name;
       this.markDirty(String(id));
       this.allocations.filter(a => a.projectName === name).forEach(a => this.markDirty(String(a.id)));
-      const newParent = proj.parentId == null ? null : proj.parentId;
-      this.projects.forEach(p => {
-        if (p.parentId === id) { p.parentId = newParent; this.markDirty(String(p.id)); }
-      });
       this.projects.splice(this.projects.findIndex(p => p.id === id), 1);
       const before = this.allocations.length;
       this.allocations = this.allocations.filter(a => a.projectName !== name);
@@ -2578,7 +2486,7 @@ createApp({
       this._stopSync();
       this._setSyncBase();
       if (this._dirtyIds) this._dirtyIds.clear();
-      this._syncInterval = setInterval(() => this._autoSync(), 10000);
+      this._syncInterval = setInterval(() => this._autoSync(), 30000);
     },
     _stopSync() {
       if (this._syncInterval) { clearInterval(this._syncInterval); this._syncInterval = null; }
@@ -2876,7 +2784,13 @@ createApp({
     'allocModal.derived'()      { this.recalcDerived(); },
     'allocModal.inputMode'()    { this.recalcDerived(); },
     currentUserName(v) { localStorage.setItem('kapaUserName', v); },
-    globalDepts(v) { localStorage.setItem('kapaGlobalDepts', JSON.stringify(v)); if (this.view === 'dashboard') this.renderCharts(); },
+    globalDepts(v) {
+      localStorage.setItem('kapaGlobalDepts', JSON.stringify(v));
+      if (this.view === 'dashboard') {
+        clearTimeout(this._chartsDebounce);
+        this._chartsDebounce = setTimeout(() => this.renderCharts(), 150);
+      }
+    },
     view(v) {
       if (v === 'dashboard') this.renderCharts();
       if (v === 'ressourcen') this.$nextTick(() => {
