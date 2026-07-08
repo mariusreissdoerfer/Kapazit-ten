@@ -480,7 +480,7 @@ select.form-control{cursor:pointer}
                     <div class="gantt-bar" v-for="alloc in mgrp.allocs" :key="alloc.id"
                       :class="{dragging: dragState && dragState.item===alloc}"
                       :style="getBarStyleLaned(alloc, mgrp.laneOf[alloc.id]||0, mgrp.laneCount)"
-                      :title="`${getMemberName(mgrp.memberId)} · ${formatH(alloc.hoursPerWeek)}h/Wo · ${allocPct(alloc)}% · KW${alloc.startKW}–${alloc.endKW}`"
+                      :title="`${getMemberName(mgrp.memberId)} · ${formatH(alloc.hoursPerWeek)}h/Wo · ${allocPct(alloc)}% · KW${alloc.startKW}–${alloc.endKW}${alloc.note?'\n\n'+alloc.note:''}`"
                       @mousedown.prevent="startDrag($event, alloc, 'move')"
                       @dblclick.prevent.stop="editAlloc(alloc)">
                       <div class="bar-handle bar-handle-left" @mousedown.prevent.stop="startDrag($event, alloc, 'left')"></div>
@@ -566,7 +566,7 @@ select.form-control{cursor:pointer}
                       <div class="gantt-bar" v-for="alloc in grp.allocs" :key="alloc.id"
                         :class="{dragging: dragState && dragState.item===alloc}"
                         :style="getBarStyleLaned(alloc, grp.laneOf[alloc.id]||0, grp.laneCount)"
-                        :title="`${alloc.projectName} · ${formatH(alloc.hoursPerWeek)}h/Wo · ${allocPct(alloc)}% · KW${alloc.startKW}–${alloc.endKW}`"
+                        :title="`${alloc.projectName} · ${formatH(alloc.hoursPerWeek)}h/Wo · ${allocPct(alloc)}% · KW${alloc.startKW}–${alloc.endKW}${alloc.note?'\n\n'+alloc.note:''}`"
                         @mousedown.prevent="startDrag($event, alloc, 'move')"
                         @dblclick.prevent.stop="editAlloc(alloc)">
                         <div class="bar-handle bar-handle-left" @mousedown.prevent.stop="startDrag($event, alloc, 'left')"></div>
@@ -947,6 +947,12 @@ select.form-control{cursor:pointer}
             </select>
           </div>
         </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:1">
+            <label class="form-label">Notiz</label>
+            <textarea class="form-control" rows="3" v-model="allocModal.note" placeholder="Optionale Notiz zu dieser Zuweisung"></textarea>
+          </div>
+        </div>
       </div>
       <div class="modal-footer">
         <button v-if="allocModal.id" class="btn btn-danger" style="margin-right:auto" @click="deleteAlloc(allocModal.id);showAllocModal=false">Löschen</button>
@@ -1307,7 +1313,7 @@ createApp({
 
       // Modals
       showAllocModal: false,
-      allocModal: {id:null, memberId:null, projectName:'', focus:'Konstruktion', startKW:23, endKW:26, year:new Date().getFullYear(), hoursPerWeek:8, pct:25, inputMode:'pct', totalHours:0, derived:'totalHours'},
+      allocModal: {id:null, memberId:null, projectName:'', focus:'Konstruktion', startKW:23, endKW:26, year:new Date().getFullYear(), hoursPerWeek:8, pct:25, inputMode:'pct', totalHours:0, derived:'totalHours', note:''},
       showAbsenceModal: false,
       absenceModal: {id:null, memberId:null, startKW:23, endKW:26, year:new Date().getFullYear(), pct:100},
       returnToAllocModal: false,
@@ -1797,6 +1803,7 @@ createApp({
         endKW:   Math.min(52, this.currentKW + 3),
         year: new Date().getFullYear(),
         hoursPerWeek: 8, pct: 25, inputMode: 'pct', totalHours: 0, derived: 'totalHours',
+        note: '',
       };
       this.$nextTick(() => this.recalcDerived());
       this.showAllocModal = true;
@@ -1804,7 +1811,7 @@ createApp({
     editAlloc(a) {
       const _m = this.members.find(x => x.id === a.memberId);
       const _pct = (_m && _m.hoursPerWeek) ? Math.round(a.hoursPerWeek / _m.hoursPerWeek * 100) : 25;
-      this.allocModal = {id:a.id, memberId:a.memberId, projectName:a.projectName, focus:a.focus||'Konstruktion', startKW:a.startKW, endKW:a.endKW, year:a.year, hoursPerWeek:a.hoursPerWeek, pct:_pct, inputMode:'pct', totalHours:0, derived:'totalHours'};
+      this.allocModal = {id:a.id, memberId:a.memberId, projectName:a.projectName, focus:a.focus||'Konstruktion', startKW:a.startKW, endKW:a.endKW, year:a.year, hoursPerWeek:a.hoursPerWeek, pct:_pct, inputMode:'pct', totalHours:0, derived:'totalHours', note: a.note || ''};
       this.$nextTick(() => this.recalcDerived());
       this.showAllocModal = true;
     },
@@ -1873,6 +1880,7 @@ createApp({
         endKW: Math.min(52, this.currentKW + 3),
         year: new Date().getFullYear(),
         hoursPerWeek: 8, pct: 25, inputMode: 'pct', totalHours: 0, derived: 'totalHours',
+        note: '',
       };
       this.$nextTick(() => this.recalcDerived());
       this.showAllocModal = true;
