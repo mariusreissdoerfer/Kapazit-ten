@@ -125,6 +125,8 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#F1F5F9;color:#1E
 .bar-handle-right{right:0;border-radius:0 5px 5px 0}
 .gantt-bar-absence{background:repeating-linear-gradient(45deg,#475569,#475569 4px,#64748B 4px,#64748B 8px)!important;opacity:.9}
 .gantt-bar-absence .bar-label{color:#fff;font-weight:600;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+.gantt-bar-done{opacity:.45;filter:grayscale(.5)}
+.gantt-bar-done:hover{opacity:.7}
 .gantt-deadline{position:absolute;top:0;bottom:0;width:2px;background:#EF4444;z-index:6;border-radius:1px;pointer-events:all;cursor:default}
 .gantt-deadline::before{content:'◆';position:absolute;top:-1px;left:-5px;font-size:10px;color:#EF4444;line-height:1}
 .gantt-budget-line{position:absolute;top:0;bottom:0;width:2px;background:#10B981;z-index:6;border-radius:1px;pointer-events:all;cursor:default}
@@ -389,6 +391,10 @@ select.form-control{cursor:pointer}
         <div class="gantt-kw-toolbar">
           <span style="font-size:12px;color:#64748B">KW-Gantt {{ganttStartYear}}–{{ganttStartYear+ganttYearCount-1}}</span>
           <span style="font-size:12px;color:#94A3B8">Heute: KW {{currentKW}}</span>
+          <label v-if="doneAllocCount" style="display:flex;align-items:center;gap:5px;font-size:12px;color:#64748B;cursor:pointer;user-select:none">
+            <input type="checkbox" v-model="showDoneAllocs" @change="persistShowDone" style="accent-color:#6366F1;cursor:pointer">
+            Abgeschlossene anzeigen ({{doneAllocCount}})
+          </label>
           <div style="display:flex;gap:8px;margin-left:auto;align-items:center">
             <template v-if="ganttMode==='member'">
               <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#64748B"><div style="width:10px;height:10px;border-radius:2px;background:#F59E0B"></div>Auslastung &lt;80%</div>
@@ -478,9 +484,9 @@ select.form-control{cursor:pointer}
                   </td>
                   <td :colspan="ganttColCount" class="gkw-bar-td">
                     <div class="gantt-bar" v-for="alloc in mgrp.allocs" :key="alloc.id"
-                      :class="{dragging: dragState && dragState.item===alloc}"
+                      :class="{dragging: dragState && dragState.item===alloc, 'gantt-bar-done': alloc.done}"
                       :style="getBarStyleLaned(alloc, mgrp.laneOf[alloc.id]||0, mgrp.laneCount)"
-                      :title="`${getMemberName(mgrp.memberId)} · ${formatH(alloc.hoursPerWeek)}h/Wo · ${allocPct(alloc)}% · KW${alloc.startKW}–${alloc.endKW}${alloc.note?'\n\n'+alloc.note:''}`"
+                      :title="`${getMemberName(mgrp.memberId)} · ${formatH(alloc.hoursPerWeek)}h/Wo · ${allocPct(alloc)}% · KW${alloc.startKW}–${alloc.endKW}${alloc.done?' · ✓ Abgeschlossen':''}${alloc.note?'\n\n'+alloc.note:''}`"
                       @mousedown.prevent="startDrag($event, alloc, 'move')"
                       @dblclick.prevent.stop="editAlloc(alloc)">
                       <div class="bar-handle bar-handle-left" @mousedown.prevent.stop="startDrag($event, alloc, 'left')"></div>
@@ -564,9 +570,9 @@ select.form-control{cursor:pointer}
                     </template>
                     <template v-else>
                       <div class="gantt-bar" v-for="alloc in grp.allocs" :key="alloc.id"
-                        :class="{dragging: dragState && dragState.item===alloc}"
+                        :class="{dragging: dragState && dragState.item===alloc, 'gantt-bar-done': alloc.done}"
                         :style="getBarStyleLaned(alloc, grp.laneOf[alloc.id]||0, grp.laneCount)"
-                        :title="`${alloc.projectName} · ${formatH(alloc.hoursPerWeek)}h/Wo · ${allocPct(alloc)}% · KW${alloc.startKW}–${alloc.endKW}${alloc.note?'\n\n'+alloc.note:''}`"
+                        :title="`${alloc.projectName} · ${formatH(alloc.hoursPerWeek)}h/Wo · ${allocPct(alloc)}% · KW${alloc.startKW}–${alloc.endKW}${alloc.done?' · ✓ Abgeschlossen':''}${alloc.note?'\n\n'+alloc.note:''}`"
                         @mousedown.prevent="startDrag($event, alloc, 'move')"
                         @dblclick.prevent.stop="editAlloc(alloc)">
                         <div class="bar-handle bar-handle-left" @mousedown.prevent.stop="startDrag($event, alloc, 'left')"></div>
@@ -858,7 +864,7 @@ select.form-control{cursor:pointer}
   <div class="modal-backdrop" v-if="showAllocModal" @mousedown.self="modalBackdropDown=true" @mouseup.self="if(modalBackdropDown)showAllocModal=false;modalBackdropDown=false" @mouseleave="modalBackdropDown=false">
     <div class="modal">
       <div class="modal-header">
-        <span class="modal-title">{{allocModal.id ? 'Zuweisung bearbeiten' : 'Zuweisung hinzufügen'}}</span>
+        <span class="modal-title">{{allocModal.id ? 'Zuweisung bearbeiten' : 'Zuweisung hinzufügen'}}<span v-if="allocModal.done" style="margin-left:8px;font-size:11px;font-weight:600;color:#059669;background:#D1FAE5;border-radius:99px;padding:2px 8px;vertical-align:middle">✓ Abgeschlossen</span></span>
         <button class="modal-close" @click="showAllocModal=false"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="20" height="20"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
       <div class="modal-body">
@@ -955,7 +961,9 @@ select.form-control{cursor:pointer}
         </div>
       </div>
       <div class="modal-footer">
-        <button v-if="allocModal.id" class="btn btn-danger" style="margin-right:auto" @click="deleteAlloc(allocModal.id);showAllocModal=false">Löschen</button>
+        <button v-if="allocModal.id" class="btn btn-danger" @click="deleteAlloc(allocModal.id);showAllocModal=false">Löschen</button>
+        <button v-if="allocModal.id && !allocModal.done" class="btn" style="margin-right:auto;background:#10B981;color:#fff" @click="completeAllocFromModal" title="Zuweisung abschließen – sie wird im Gantt ausgeblendet, bleibt aber in den Auswertungen erhalten">✓ Abschließen</button>
+        <button v-if="allocModal.id && allocModal.done" class="btn btn-secondary" style="margin-right:auto" @click="reactivateAllocFromModal">↩ Reaktivieren</button>
         <button class="btn btn-secondary" @click="showAllocModal=false">Abbrechen</button>
         <button class="btn btn-primary" @click="saveAlloc">Speichern</button>
       </div>
@@ -1313,7 +1321,7 @@ createApp({
 
       // Modals
       showAllocModal: false,
-      allocModal: {id:null, memberId:null, projectName:'', focus:'Konstruktion', startKW:23, endKW:26, year:new Date().getFullYear(), hoursPerWeek:8, pct:25, inputMode:'pct', totalHours:0, derived:'totalHours', note:''},
+      allocModal: {id:null, memberId:null, projectName:'', focus:'Konstruktion', startKW:23, endKW:26, year:new Date().getFullYear(), hoursPerWeek:8, pct:25, inputMode:'pct', totalHours:0, derived:'totalHours', note:'', done:false},
       showAbsenceModal: false,
       absenceModal: {id:null, memberId:null, startKW:23, endKW:26, year:new Date().getFullYear(), pct:100},
       returnToAllocModal: false,
@@ -1323,6 +1331,7 @@ createApp({
       memberModal: {id:null, name:'', hoursPerWeek:35, grundlastPct:15, color:'#6366F1', department:''},
 
       ganttMode: 'member',
+      showDoneAllocs: localStorage.getItem('kapaShowDone') === '1',
       selectedColIdx: null,
       globalDepts: JSON.parse(localStorage.getItem('kapaGlobalDepts') || '[]'),
       sidebarCollapsed: localStorage.getItem('kapaSidebarCollapsed') !== '0',
@@ -1477,6 +1486,9 @@ createApp({
       if (!exp.length) return this.members;
       return this.members.filter(m => exp.includes(m.department));
     },
+    doneAllocCount() {
+      return this.allocations.filter(a => a.done).length;
+    },
     allocModalHours() {
       const m = this.members.find(x => x.id === this.allocModal.memberId);
       if (!m) return 0;
@@ -1492,7 +1504,7 @@ createApp({
       const map = {};
       const visibleIds = new Set(this.visibleMembers.map(m => m.id));
       this.allocations
-        .filter(a => a.year >= this.ganttStartYear && a.year < this.ganttStartYear + this.ganttYearCount && visibleIds.has(a.memberId))
+        .filter(a => a.year >= this.ganttStartYear && a.year < this.ganttStartYear + this.ganttYearCount && visibleIds.has(a.memberId) && (!a.done || this.showDoneAllocs))
         .forEach(a => {
           if (!map[a.projectName]) { map[a.projectName] = {}; order.push(a.projectName); }
           if (!map[a.projectName][a.memberId]) map[a.projectName][a.memberId] = [];
@@ -1612,7 +1624,7 @@ createApp({
 
     // ── Gantt bar helpers ────────────────────────────────────────────
     getMemberAllocs(memberId) {
-      return this.allocations.filter(a => a.memberId === memberId && a.year >= this.ganttStartYear && a.year < this.ganttStartYear + this.ganttYearCount);
+      return this.allocations.filter(a => a.memberId === memberId && a.year >= this.ganttStartYear && a.year < this.ganttStartYear + this.ganttYearCount && (!a.done || this.showDoneAllocs));
     },
     getMemberAllocGroups(memberId) {
       const map = {};
@@ -1803,7 +1815,7 @@ createApp({
         endKW:   Math.min(52, this.currentKW + 3),
         year: new Date().getFullYear(),
         hoursPerWeek: 8, pct: 25, inputMode: 'pct', totalHours: 0, derived: 'totalHours',
-        note: '',
+        note: '', done: false,
       };
       this.$nextTick(() => this.recalcDerived());
       this.showAllocModal = true;
@@ -1811,7 +1823,7 @@ createApp({
     editAlloc(a) {
       const _m = this.members.find(x => x.id === a.memberId);
       const _pct = (_m && _m.hoursPerWeek) ? Math.round(a.hoursPerWeek / _m.hoursPerWeek * 100) : 25;
-      this.allocModal = {id:a.id, memberId:a.memberId, projectName:a.projectName, focus:a.focus||'Konstruktion', startKW:a.startKW, endKW:a.endKW, year:a.year, hoursPerWeek:a.hoursPerWeek, pct:_pct, inputMode:'pct', totalHours:0, derived:'totalHours', note: a.note || ''};
+      this.allocModal = {id:a.id, memberId:a.memberId, projectName:a.projectName, focus:a.focus||'Konstruktion', startKW:a.startKW, endKW:a.endKW, year:a.year, hoursPerWeek:a.hoursPerWeek, pct:_pct, inputMode:'pct', totalHours:0, derived:'totalHours', note: a.note || '', done: !!a.done};
       this.$nextTick(() => this.recalcDerived());
       this.showAllocModal = true;
     },
@@ -1880,7 +1892,7 @@ createApp({
         endKW: Math.min(52, this.currentKW + 3),
         year: new Date().getFullYear(),
         hoursPerWeek: 8, pct: 25, inputMode: 'pct', totalHours: 0, derived: 'totalHours',
-        note: '',
+        note: '', done: false,
       };
       this.$nextTick(() => this.recalcDerived());
       this.showAllocModal = true;
@@ -1952,6 +1964,21 @@ createApp({
       this.autoSave();
       this.notify('Zuweisung gelöscht', 'info');
     },
+    completeAllocFromModal() {
+      this.allocModal.done = true;
+      this.saveAlloc();
+      if (!this.showAllocModal) this.notify('Zuweisung abgeschlossen – im Gantt ausgeblendet', 'success');
+      else this.allocModal.done = false;
+    },
+    reactivateAllocFromModal() {
+      this.allocModal.done = false;
+      this.saveAlloc();
+      if (!this.showAllocModal) this.notify('Zuweisung reaktiviert', 'success');
+      else this.allocModal.done = true;
+    },
+    persistShowDone() {
+      localStorage.setItem('kapaShowDone', this.showDoneAllocs ? '1' : '0');
+    },
 
     // ── Absence CRUD ─────────────────────────────────────────────────
     openNewAbsenceModal(memberId) {
@@ -1990,9 +2017,22 @@ createApp({
     moveToStatus(status) {
       if (!this.kanbanDragItem) return;
       const proj = this.projects.find(p => p.id === this.kanbanDragItem);
-      if (proj) proj.status = status;
+      if (proj) {
+        const wasDone = proj.status === 'Abgeschlossen';
+        proj.status = status;
+        this.markDirty(String(proj.id));
+        if (!wasDone && status === 'Abgeschlossen') {
+          const n = this.completeProjectAllocs(proj.name);
+          if (n) this.notify(`${n} Zuweisung${n===1?'':'en'} mit abgeschlossen`, 'info');
+        }
+      }
       this.kanbanDragItem = null; this.kanbanDragTarget = null;
       this.autoSave();
+    },
+    completeProjectAllocs(projectName) {
+      const affected = this.allocations.filter(a => a.projectName === projectName && !a.done);
+      affected.forEach(a => { a.done = true; this.markDirty(String(a.id)); });
+      return affected.length;
     },
 
     // ── Projects ─────────────────────────────────────────────────────
@@ -2042,9 +2082,15 @@ createApp({
     },
     saveProject() {
       if (!this.projectModal.name) { this.notify('Bitte Namen eingeben', 'error'); return; }
+      let completedCount = 0;
       if (this.projectModal.id) {
         const i = this.projects.findIndex(p => p.id === this.projectModal.id);
-        if (i >= 0) { Object.assign(this.projects[i], this.projectModal); this.markDirty(String(this.projectModal.id)); }
+        if (i >= 0) {
+          const wasDone = this.projects[i].status === 'Abgeschlossen';
+          Object.assign(this.projects[i], this.projectModal); this.markDirty(String(this.projectModal.id));
+          if (!wasDone && this.projectModal.status === 'Abgeschlossen')
+            completedCount = this.completeProjectAllocs(this.projects[i].name);
+        }
       } else {
         const newProjId = Math.max(0, ...this.projects.map(p => p.id)) + 1;
         this.projects.push({...this.projectModal, id: newProjId});
@@ -2053,7 +2099,7 @@ createApp({
       }
       this.showProjectModal = false;
       this.autoSave();
-      this.notify('Projekt gespeichert', 'success');
+      this.notify(completedCount ? `Projekt gespeichert – ${completedCount} Zuweisung${completedCount===1?'':'en'} abgeschlossen` : 'Projekt gespeichert', 'success');
       if (this.returnToAllocModal) {
         if (!this.projectModal.id) {
           const newName = this.projects[this.projects.length - 1].name;
